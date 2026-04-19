@@ -2,6 +2,8 @@
 
 Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligibility decisions, bundle schemas, and stateful decision sessions.
 
+**Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
+
 ## Install
 
 ```bash
