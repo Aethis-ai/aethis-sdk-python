@@ -31,6 +31,7 @@ class DecideResponse(BaseModel):
 
     decision: Decision
     bundle_id: str | None = None
+    slug: str | None = None
     ruleset_id: str | None = None
     bundle_version: str = "unknown"
     fields_evaluated: int = 0
@@ -58,4 +59,5 @@ class SchemaResponse(BaseModel):
     """Response body from ``GET /api/v1/public/bundles/{id}/schema``."""
 
     bundle_id: str
+    slug: str | None = None
     fields: list[SchemaField]
