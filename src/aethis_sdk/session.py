@@ -22,15 +22,15 @@ class SessionStatus:
 class _SessionState:
     """Shared answer-accumulation and cache logic between sync/async sessions."""
 
-    def __init__(self, bundle_id: str, schema: SchemaResponse) -> None:
-        self._bundle_id = bundle_id
+    def __init__(self, ruleset_id: str, schema: SchemaResponse) -> None:
+        self._ruleset_id = ruleset_id
         self._answers: dict[str, Any] = {}
         self._cached: DecideResponse | None = None
         self._fields: dict[str, SchemaField] = {f.field_id: f for f in schema.fields}
 
     @property
-    def bundle_id(self) -> str:
-        return self._bundle_id
+    def ruleset_id(self) -> str:
+        return self._ruleset_id
 
     @property
     def answers(self) -> dict[str, Any]:
@@ -99,8 +99,8 @@ class DecisionSession(_SessionState):
     is responsible for the client's lifecycle::
 
         async with AsyncAethis(api_key="...") as client:
-            schema = await client.get_schema("bundle:v1")
-            session = DecisionSession("bundle:v1", client, schema)
+            schema = await client.get_schema("ruleset:v1")
+            session = DecisionSession("ruleset:v1", client, schema)
             session.answer("age", 25)
             if await session.is_eligible():
                 print("eligible!")
@@ -108,11 +108,11 @@ class DecisionSession(_SessionState):
 
     def __init__(
         self,
-        bundle_id: str,
+        ruleset_id: str,
         client: AsyncAethis,
         schema: SchemaResponse,
     ) -> None:
-        super().__init__(bundle_id, schema)
+        super().__init__(ruleset_id, schema)
         self._client = client
 
     async def decide(self, include_trace: bool = False) -> DecideResponse:
@@ -120,7 +120,7 @@ class DecisionSession(_SessionState):
         if not self._needs_fetch(include_trace):
             assert self._cached is not None
             return self._cached
-        resp = await self._client.decide(self._bundle_id, self._answers, include_trace=include_trace)
+        resp = await self._client.decide(self._ruleset_id, self._answers, include_trace=include_trace)
         self._cached = resp
         return resp
 
@@ -148,8 +148,8 @@ class SyncDecisionSession(_SessionState):
     responsible for the client's lifecycle::
 
         with Aethis(api_key="...") as client:
-            schema = client.get_schema("bundle:v1")
-            session = SyncDecisionSession("bundle:v1", client, schema)
+            schema = client.get_schema("ruleset:v1")
+            session = SyncDecisionSession("ruleset:v1", client, schema)
             session.answer("age", 25)
             if session.is_eligible():
                 print("eligible!")
@@ -157,11 +157,11 @@ class SyncDecisionSession(_SessionState):
 
     def __init__(
         self,
-        bundle_id: str,
+        ruleset_id: str,
         client: Aethis,
         schema: SchemaResponse,
     ) -> None:
-        super().__init__(bundle_id, schema)
+        super().__init__(ruleset_id, schema)
         self._client = client
 
     def decide(self, include_trace: bool = False) -> DecideResponse:
@@ -169,7 +169,7 @@ class SyncDecisionSession(_SessionState):
         if not self._needs_fetch(include_trace):
             assert self._cached is not None
             return self._cached
-        resp = self._client.decide(self._bundle_id, self._answers, include_trace=include_trace)
+        resp = self._client.decide(self._ruleset_id, self._answers, include_trace=include_trace)
         self._cached = resp
         return resp
 

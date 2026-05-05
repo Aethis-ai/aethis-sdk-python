@@ -14,7 +14,7 @@ class AethisError(Exception):
 class AethisAPIError(AethisError):
     """Raised on 4xx responses from the Aethis API.
 
-    Indicates a client error: bad request, auth failure, missing bundle, etc.
+    Indicates a client error: bad request, auth failure, missing ruleset, etc.
     """
 
 

@@ -28,7 +28,7 @@ class TestDecide:
             assert request.url.path == "/api/v1/public/decide"
             assert request.method == "POST"
             body = json.loads(request.content)
-            assert body["bundle_id"] == "test_bundle:v1"
+            assert body["ruleset_id"] == "test_ruleset:v1"
             assert body["field_values"] == {"age": 25}
             return httpx.Response(200, json=make_decide_response(decision="eligible"))
 
@@ -37,7 +37,7 @@ class TestDecide:
             base_url="http://test",
             transport=httpx.MockTransport(handler),
         ) as client:
-            resp = await client.decide("test_bundle:v1", {"age": 25})
+            resp = await client.decide("test_ruleset:v1", {"age": 25})
 
         assert isinstance(resp, DecideResponse)
         assert resp.decision == "eligible"
@@ -53,7 +53,7 @@ class TestDecide:
             base_url="http://test",
             transport=httpx.MockTransport(handler),
         ) as client:
-            await client.decide("bundle:v1", {})
+            await client.decide("ruleset:v1", {})
 
     async def test_sends_iam_bearer_when_configured(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -67,7 +67,7 @@ class TestDecide:
             iam_token="iam-token-xyz",
             transport=httpx.MockTransport(handler),
         ) as client:
-            await client.decide("bundle:v1", {})
+            await client.decide("ruleset:v1", {})
 
     async def test_sends_include_trace(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -78,11 +78,11 @@ class TestDecide:
         async with AsyncAethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
-            await client.decide("bundle:v1", {}, include_trace=True)
+            await client.decide("ruleset:v1", {}, include_trace=True)
 
     async def test_404_raises_api_error(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(404, json={"detail": "Bundle not found"})
+            return httpx.Response(404, json={"detail": "Ruleset not found"})
 
         async with AsyncAethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
@@ -99,7 +99,7 @@ class TestDecide:
             api_key="bad", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
             with pytest.raises(AethisAPIError, match="401"):
-                await client.decide("bundle:v1", {})
+                await client.decide("ruleset:v1", {})
 
     async def test_retries_once_on_500_then_succeeds(self):
         call_count = 0
@@ -114,7 +114,7 @@ class TestDecide:
         async with AsyncAethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
-            resp = await client.decide("bundle:v1", {})
+            resp = await client.decide("ruleset:v1", {})
 
         assert resp.decision == "eligible"
         assert call_count == 2
@@ -127,23 +127,23 @@ class TestDecide:
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
             with pytest.raises(AethisUnavailable):
-                await client.decide("bundle:v1", {})
+                await client.decide("ruleset:v1", {})
 
 
 class TestGetSchema:
     async def test_returns_parsed_response_on_200(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            assert request.url.path == "/api/v1/public/bundles/test_bundle:v1/schema"
+            assert request.url.path == "/api/v1/public/rulesets/test_ruleset:v1/schema"
             assert request.method == "GET"
             return httpx.Response(200, json=make_schema_response())
 
         async with AsyncAethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
-            resp = await client.get_schema("test_bundle:v1")
+            resp = await client.get_schema("test_ruleset:v1")
 
         assert isinstance(resp, SchemaResponse)
-        assert resp.bundle_id == "test_bundle:v1"
+        assert resp.ruleset_id == "test_ruleset:v1"
         assert len(resp.fields) == 3
         assert resp.fields[0].field_id == "age"
         assert resp.fields[0].field_type == "integer"
@@ -173,7 +173,7 @@ class TestReadOnlyEndpoints:
 
     async def test_explain(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            assert request.url.path == "/api/v1/public/bundles/b:v1/explain"
+            assert request.url.path == "/api/v1/public/rulesets/b:v1/explain"
             return httpx.Response(200, json={"sections": []})
 
         async with AsyncAethis(
@@ -184,7 +184,7 @@ class TestReadOnlyEndpoints:
 
     async def test_get_source(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            assert request.url.path == "/api/v1/public/bundles/b:v1/source"
+            assert request.url.path == "/api/v1/public/rulesets/b:v1/source"
             return httpx.Response(200, json={"text": "legislation excerpt"})
 
         async with AsyncAethis(

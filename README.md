@@ -1,6 +1,6 @@
 # Aethis SDK for Python
 
-Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligibility decisions, bundle schemas, and stateful decision sessions.
+Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligibility decisions, ruleset schemas, and stateful decision sessions.
 
 **Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
 
@@ -21,7 +21,7 @@ from aethis_sdk import Aethis
 
 with Aethis(api_key="YOUR_KEY") as client:
     response = client.decide(
-        bundle_id="eng_lang:20250912-ec5d7c23",
+        ruleset_id="eng_lang:20250912-ec5d7c23",
         field_values={
             "nationality": "French",
             "degree_awarded_in_uk": True,
@@ -39,7 +39,7 @@ from aethis_sdk import AsyncAethis
 async def main():
     async with AsyncAethis(api_key="YOUR_KEY") as client:
         response = await client.decide(
-            bundle_id="eng_lang:20250912-ec5d7c23",
+            ruleset_id="eng_lang:20250912-ec5d7c23",
             field_values={"nationality": "French"},
         )
         print(response.decision)
@@ -70,7 +70,7 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 
 | Import | Purpose |
 |---|---|
-| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/bundles/{id}/schema`, `/me`, `/bundles/{id}/explain`, `/bundles/{id}/source` |
+| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/rulesets/{id}/schema`, `/me`, `/rulesets/{id}/explain`, `/rulesets/{id}/source` |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
 | `DecideResponse`, `SchemaResponse`, `SchemaField`, `NextQuestion`, `SectionResult` | Pydantic response models |
 | `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy |
@@ -84,7 +84,7 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 
 ## Status
 
-Pre-1.0. The decision surface (`/decide`, `/schema`) is stable; authoring endpoints (projects, bundles, publishing) are not yet exposed here — use the [Aethis CLI](https://github.com/Aethis-ai/aethis-cli) for those.
+Pre-1.0. The decision surface (`/decide`, `/schema`) is stable; authoring endpoints (projects, rulesets, publishing) are not yet exposed here — use the [Aethis CLI](https://github.com/Aethis-ai/aethis-cli) for those.
 
 ## Links
 

@@ -27,14 +27,14 @@ class TestDecide:
             call_count += 1
             assert request.url.path == "/api/v1/public/decide"
             body = json.loads(request.content)
-            assert body["bundle_id"] == "test_bundle:v1"
+            assert body["ruleset_id"] == "test_ruleset:v1"
             assert body["field_values"] == {"age": 25}
             return httpx.Response(200, json=make_decide_response(decision="eligible"))
 
         with Aethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
-            resp = client.decide("test_bundle:v1", {"age": 25})
+            resp = client.decide("test_ruleset:v1", {"age": 25})
 
         assert isinstance(resp, DecideResponse)
         assert resp.decision == "eligible"
@@ -50,7 +50,7 @@ class TestDecide:
             base_url="http://test",
             transport=httpx.MockTransport(handler),
         ) as client:
-            client.decide("bundle:v1", {})
+            client.decide("ruleset:v1", {})
 
     def test_retries_once_on_500_then_succeeds(self):
         call_count = 0
@@ -65,7 +65,7 @@ class TestDecide:
         with Aethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
-            resp = client.decide("bundle:v1", {})
+            resp = client.decide("ruleset:v1", {})
 
         assert resp.decision == "eligible"
         assert call_count == 2
@@ -78,11 +78,11 @@ class TestDecide:
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
             with pytest.raises(AethisUnavailable):
-                client.decide("bundle:v1", {})
+                client.decide("ruleset:v1", {})
 
     def test_404_raises_api_error_with_status(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(404, json={"detail": "Bundle not found"})
+            return httpx.Response(404, json={"detail": "Ruleset not found"})
 
         with Aethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
@@ -95,15 +95,15 @@ class TestDecide:
 class TestGetSchema:
     def test_returns_parsed_response(self):
         def handler(request: httpx.Request) -> httpx.Response:
-            assert request.url.path == "/api/v1/public/bundles/b:v1/schema"
-            return httpx.Response(200, json=make_schema_response(bundle_id="b:v1"))
+            assert request.url.path == "/api/v1/public/rulesets/b:v1/schema"
+            return httpx.Response(200, json=make_schema_response(ruleset_id="b:v1"))
 
         with Aethis(
             api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
         ) as client:
             resp = client.get_schema("b:v1")
         assert isinstance(resp, SchemaResponse)
-        assert resp.bundle_id == "b:v1"
+        assert resp.ruleset_id == "b:v1"
 
 
 class TestConfig:
