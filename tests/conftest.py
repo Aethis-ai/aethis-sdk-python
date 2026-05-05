@@ -12,7 +12,6 @@ def make_decide_response(**overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "decision": "undetermined",
         "ruleset_id": "test_ruleset:v1",
-        "ruleset_id": None,
         "ruleset_version": "v1",
         "fields_evaluated": 3,
         "fields_provided": 1,
