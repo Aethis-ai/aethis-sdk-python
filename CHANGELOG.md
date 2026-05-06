@@ -8,6 +8,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - `Aethis(api_key=...)` and `AsyncAethis(api_key=...)` now accept `api_key=None` (or no argument) for the developer beta. Evaluation endpoints (`/decide`, `/schema`, `/explain`, `/source`) work anonymously, so the SDK no longer forces a key on instantiation. When `api_key` is omitted, the `x-api-key` header is simply not sent. Authoring endpoints will still return 401 without a key. Existing callers passing `api_key="..."` are unaffected.
+- README quickstart now shows `Aethis()` (no key) as the primary form, targets `aethis/uk-fsm/child-eligibility` (a live public ruleset) instead of the dated `eng_lang:20250912-ec5d7c23`, and prints the audit fields (`inputs_hash`, `decision_id`, `decision_time`, `engine_version`) added in 0.3.2. Configuration table updated: `api_key` is now documented as optional during the developer beta.
+- `examples/oneshot.py` refreshed to match: no key required by default, `AETHIS_BUNDLE_ID` env var renamed to `AETHIS_RULESET_ID` (catching the 0.3.0 `bundle → ruleset` rename it had missed), targets the live UK Free School Meals ruleset, prints the audit fields.
 
 ### Notes
 - Backwards-compatible: `Aethis(api_key="ak_live_...")` continues to work exactly as before.
