@@ -8,10 +8,6 @@ Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligib
 
 **Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
 
-<!-- aethis-bible: public-messaging.md#3-the-problem-one-paragraph -->
-<!-- aethis-bible: public-messaging.md#4-the-solution-one-paragraph -->
-Language models interpret rules well. They do not execute them reliably. The failure mode is silent: high confidence, wrong answer, no trace. AI builds it. A constraint solver runs it. The SDK calls the decision endpoint — a constraint solver evaluates compiled rules at decision time, with no language model in the request path. Subject matter experts write the tests. Language models generate the rules that pass them.
-
 > **Authoring is in private beta.** Decision endpoints are public — `Aethis()` works with no key. Authoring endpoints (rule generation, publishing) require an invite. The CLI ([aethis-cli](https://pypi.org/project/aethis-cli/)) is the supported authoring path during the beta. Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
 
 ## Install

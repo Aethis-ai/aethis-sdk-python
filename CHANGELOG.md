@@ -4,6 +4,9 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.3 (2026-05-06)
+- docs: remove positioning paragraph above Install — reference surface (per aethis.os/positioning/surface-types.md); the tagline is enough
+
 ## 0.4.2 (2026-05-06)
 - docs: add private-beta callout for authoring endpoints (decision endpoints remain anonymous)
 
