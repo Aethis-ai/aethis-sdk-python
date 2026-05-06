@@ -4,6 +4,15 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.0 (2026-05-06)
+
+### Changed
+- `Aethis(api_key=...)` and `AsyncAethis(api_key=...)` now accept `api_key=None` (or no argument) for the developer beta. Evaluation endpoints (`/decide`, `/schema`, `/explain`, `/source`) work anonymously, so the SDK no longer forces a key on instantiation. When `api_key` is omitted, the `x-api-key` header is simply not sent. Authoring endpoints will still return 401 without a key. Existing callers passing `api_key="..."` are unaffected.
+
+### Notes
+- Backwards-compatible: `Aethis(api_key="ak_live_...")` continues to work exactly as before.
+- This pairs with the public-surface positioning that evaluation is free during the developer beta — see `docs.aethis.ai`.
+
 ## 0.3.2 (2026-05-06)
 
 ### Added

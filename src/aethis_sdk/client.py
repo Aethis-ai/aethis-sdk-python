@@ -54,14 +54,19 @@ class Aethis:
 
     Usage::
 
-        with Aethis(api_key="...") as client:
-            response = client.decide("ruleset:v1", {"age": 25})
+        # Evaluation only (developer beta — no key required)
+        with Aethis() as client:
+            response = client.decide("aethis/construction-all-risks", {...})
             print(response.decision)
+
+        # Authoring (publishing rulesets) requires a key
+        with Aethis(api_key="ak_live_...") as client:
+            ...
     """
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT,
         iam_token: str | None = None,
@@ -154,14 +159,19 @@ class AsyncAethis:
 
     Usage::
 
-        async with AsyncAethis(api_key="...") as client:
-            response = await client.decide("ruleset:v1", {"age": 25})
+        # Evaluation only (developer beta — no key required)
+        async with AsyncAethis() as client:
+            response = await client.decide("aethis/construction-all-risks", {...})
             print(response.decision)
+
+        # Authoring (publishing rulesets) requires a key
+        async with AsyncAethis(api_key="ak_live_...") as client:
+            ...
     """
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT,
         iam_token: str | None = None,

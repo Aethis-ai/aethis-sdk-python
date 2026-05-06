@@ -24,9 +24,17 @@ def validate_base_url(base_url: str, is_test: bool) -> str:
     return base_url.rstrip("/")
 
 
-def build_headers(api_key: str, iam_token: str | None) -> dict[str, str]:
-    """Construct default headers. ``iam_token`` is for Cloud Run service-to-service auth."""
-    headers = {"x-api-key": api_key}
+def build_headers(api_key: str | None, iam_token: str | None) -> dict[str, str]:
+    """Construct default headers. ``iam_token`` is for Cloud Run service-to-service auth.
+
+    During the developer beta, evaluation endpoints (``/decide``, ``/schema``,
+    ``/explain``, ``/next_question``) accept anonymous calls, so ``api_key`` is
+    optional. When omitted, no ``x-api-key`` header is sent and authoring
+    endpoints will return 401.
+    """
+    headers: dict[str, str] = {}
+    if api_key is not None:
+        headers["x-api-key"] = api_key
     if iam_token:
         headers["Authorization"] = f"Bearer {iam_token}"
     return headers
