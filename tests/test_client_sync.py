@@ -52,6 +52,27 @@ class TestDecide:
         ) as client:
             client.decide("ruleset:v1", {})
 
+    def test_no_api_key_omits_x_api_key_header(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "x-api-key" not in request.headers
+            return httpx.Response(200, json=make_decide_response())
+
+        with Aethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            client.decide("ruleset:v1", {})
+
+    def test_decide_works_without_api_key(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=make_decide_response(decision="eligible"))
+
+        with Aethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = client.decide("aethis/construction-all-risks", {})
+
+        assert resp.decision == "eligible"
+
     def test_retries_once_on_500_then_succeeds(self):
         call_count = 0
 

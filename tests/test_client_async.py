@@ -55,6 +55,27 @@ class TestDecide:
         ) as client:
             await client.decide("ruleset:v1", {})
 
+    async def test_no_api_key_omits_x_api_key_header(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "x-api-key" not in request.headers
+            return httpx.Response(200, json=make_decide_response())
+
+        async with AsyncAethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.decide("ruleset:v1", {})
+
+    async def test_decide_works_without_api_key(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=make_decide_response(decision="eligible"))
+
+        async with AsyncAethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = await client.decide("aethis/construction-all-risks", {})
+
+        assert resp.decision == "eligible"
+
     async def test_sends_iam_bearer_when_configured(self):
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.headers["Authorization"] == "Bearer iam-token-xyz"
