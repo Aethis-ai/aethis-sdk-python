@@ -11,9 +11,8 @@ def make_decide_response(**overrides: Any) -> dict[str, Any]:
     """Build a valid /decide JSON body with sensible defaults."""
     base: dict[str, Any] = {
         "decision": "undetermined",
-        "bundle_id": "test_bundle:v1",
-        "ruleset_id": None,
-        "bundle_version": "v1",
+        "ruleset_id": "test_ruleset:v1",
+        "ruleset_version": "v1",
         "fields_evaluated": 3,
         "fields_provided": 1,
         "missing_fields": ["age", "residency"],
@@ -31,7 +30,7 @@ def make_decide_response(**overrides: Any) -> dict[str, Any]:
 def make_schema_response(**overrides: Any) -> dict[str, Any]:
     """Build a valid /schema JSON body."""
     base: dict[str, Any] = {
-        "bundle_id": "test_bundle:v1",
+        "ruleset_id": "test_ruleset:v1",
         "fields": [
             {
                 "field_id": "age",

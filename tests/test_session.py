@@ -18,7 +18,7 @@ from tests.conftest import make_decide_response
 
 
 SCHEMA = SchemaResponse(
-    bundle_id="test:v1",
+    ruleset_id="test:v1",
     fields=[
         SchemaField(field_id="age", field_type="integer", question="How old are you?"),
         SchemaField(field_id="has_passport", field_type="boolean", question="Do you have a passport?"),

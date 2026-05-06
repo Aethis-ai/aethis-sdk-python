@@ -1,4 +1,4 @@
-"""One-shot decision against a published bundle.
+"""One-shot decision against a published ruleset.
 
 Run with::
 
@@ -19,11 +19,11 @@ def main() -> int:
         print("AETHIS_API_KEY is required", file=sys.stderr)
         return 1
 
-    bundle_id = os.environ.get("AETHIS_BUNDLE_ID", "eng_lang:20250912-ec5d7c23")
+    ruleset_id = os.environ.get("AETHIS_BUNDLE_ID", "eng_lang:20250912-ec5d7c23")
 
     with Aethis(api_key=api_key) as client:
         response = client.decide(
-            bundle_id=bundle_id,
+            ruleset_id=ruleset_id,
             field_values={
                 "nationality": "French",
                 "degree_awarded_in_uk": True,

@@ -25,25 +25,25 @@ DECIDE_PATH = "/api/v1/public/decide"
 WHOAMI_PATH = "/api/v1/public/me"
 
 
-def _schema_path(bundle_id: str) -> str:
-    return f"/api/v1/public/bundles/{bundle_id}/schema"
+def _schema_path(ruleset_id: str) -> str:
+    return f"/api/v1/public/rulesets/{ruleset_id}/schema"
 
 
-def _explain_path(bundle_id: str) -> str:
-    return f"/api/v1/public/bundles/{bundle_id}/explain"
+def _explain_path(ruleset_id: str) -> str:
+    return f"/api/v1/public/rulesets/{ruleset_id}/explain"
 
 
-def _source_path(bundle_id: str) -> str:
-    return f"/api/v1/public/bundles/{bundle_id}/source"
+def _source_path(ruleset_id: str) -> str:
+    return f"/api/v1/public/rulesets/{ruleset_id}/source"
 
 
 def _decide_payload(
-    bundle_id: str,
+    ruleset_id: str,
     field_values: dict[str, Any],
     include_trace: bool,
 ) -> dict[str, Any]:
     return {
-        "bundle_id": bundle_id,
+        "ruleset_id": ruleset_id,
         "field_values": field_values,
         "include_trace": include_trace,
     }
@@ -55,7 +55,7 @@ class Aethis:
     Usage::
 
         with Aethis(api_key="...") as client:
-            response = client.decide("bundle:v1", {"age": 25})
+            response = client.decide("ruleset:v1", {"age": 25})
             print(response.decision)
     """
 
@@ -91,17 +91,17 @@ class Aethis:
 
     def decide(
         self,
-        bundle_id: str,
+        ruleset_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
     ) -> DecideResponse:
-        """Evaluate a bundle against the supplied field values."""
-        resp = self._request("POST", DECIDE_PATH, json=_decide_payload(bundle_id, field_values, include_trace))
+        """Evaluate a ruleset against the supplied field values."""
+        resp = self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
         return DecideResponse.model_validate(resp.json())
 
-    def get_schema(self, bundle_id: str) -> SchemaResponse:
-        """Return the field schema for a bundle."""
-        resp = self._request("GET", _schema_path(bundle_id))
+    def get_schema(self, ruleset_id: str) -> SchemaResponse:
+        """Return the field schema for a ruleset."""
+        resp = self._request("GET", _schema_path(ruleset_id))
         return SchemaResponse.model_validate(resp.json())
 
     def whoami(self) -> dict[str, Any]:
@@ -109,14 +109,14 @@ class Aethis:
         resp = self._request("GET", WHOAMI_PATH)
         return resp.json()
 
-    def explain(self, bundle_id: str) -> dict[str, Any]:
-        """Return a human-readable explanation of a bundle's rules."""
-        resp = self._request("GET", _explain_path(bundle_id))
+    def explain(self, ruleset_id: str) -> dict[str, Any]:
+        """Return a human-readable explanation of a ruleset's rules."""
+        resp = self._request("GET", _explain_path(ruleset_id))
         return resp.json()
 
-    def get_source(self, bundle_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a bundle."""
-        resp = self._request("GET", _source_path(bundle_id))
+    def get_source(self, ruleset_id: str) -> dict[str, Any]:
+        """Return the source-text provenance for a ruleset."""
+        resp = self._request("GET", _source_path(ruleset_id))
         return resp.json()
 
     # Internal ----------------------------------------------------------
@@ -155,7 +155,7 @@ class AsyncAethis:
     Usage::
 
         async with AsyncAethis(api_key="...") as client:
-            response = await client.decide("bundle:v1", {"age": 25})
+            response = await client.decide("ruleset:v1", {"age": 25})
             print(response.decision)
     """
 
@@ -191,17 +191,17 @@ class AsyncAethis:
 
     async def decide(
         self,
-        bundle_id: str,
+        ruleset_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
     ) -> DecideResponse:
-        """Evaluate a bundle against the supplied field values."""
-        resp = await self._request("POST", DECIDE_PATH, json=_decide_payload(bundle_id, field_values, include_trace))
+        """Evaluate a ruleset against the supplied field values."""
+        resp = await self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
         return DecideResponse.model_validate(resp.json())
 
-    async def get_schema(self, bundle_id: str) -> SchemaResponse:
-        """Return the field schema for a bundle."""
-        resp = await self._request("GET", _schema_path(bundle_id))
+    async def get_schema(self, ruleset_id: str) -> SchemaResponse:
+        """Return the field schema for a ruleset."""
+        resp = await self._request("GET", _schema_path(ruleset_id))
         return SchemaResponse.model_validate(resp.json())
 
     async def whoami(self) -> dict[str, Any]:
@@ -209,14 +209,14 @@ class AsyncAethis:
         resp = await self._request("GET", WHOAMI_PATH)
         return resp.json()
 
-    async def explain(self, bundle_id: str) -> dict[str, Any]:
-        """Return a human-readable explanation of a bundle's rules."""
-        resp = await self._request("GET", _explain_path(bundle_id))
+    async def explain(self, ruleset_id: str) -> dict[str, Any]:
+        """Return a human-readable explanation of a ruleset's rules."""
+        resp = await self._request("GET", _explain_path(ruleset_id))
         return resp.json()
 
-    async def get_source(self, bundle_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a bundle."""
-        resp = await self._request("GET", _source_path(bundle_id))
+    async def get_source(self, ruleset_id: str) -> dict[str, Any]:
+        """Return the source-text provenance for a ruleset."""
+        resp = await self._request("GET", _source_path(ruleset_id))
         return resp.json()
 
     # Internal ----------------------------------------------------------

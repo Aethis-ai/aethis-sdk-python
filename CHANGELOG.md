@@ -4,28 +4,36 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.0 (2026-05-05)
+
+### Changed (Breaking)
+- Renamed the public *bundle* concept to *ruleset* throughout the SDK to match the `aethis-core 0.10.0` API contract. Every `bundle_id` parameter and JSON key is now `ruleset_id`. URL paths inside the client moved from `/api/v1/public/bundles/...` to `/api/v1/public/rulesets/...`. The `Session` constructor now takes `ruleset_id` and exposes `session.ruleset_id` instead of `session.bundle_id`. Class names: `BundleSummary` → `RulesetSummary`.
+
+### Required
+- Engine `aethis-core 0.10.0` or newer. Older engines respond at the legacy `/bundles/*` paths and this client will 404. Pin `aethis-sdk==0.2.0` to keep working against an older engine.
+
 ## 0.2.0 (2026-04-27)
 
 ### Added
-- `DecideResponse.slug` — stable, human-readable handle for the bundle
-  (e.g. `aethis/uk-fsm/child-eligibility`). Set when the resolved bundle
+- `DecideResponse.slug` — stable, human-readable handle for the ruleset
+  (e.g. `aethis/uk-fsm/child-eligibility`). Set when the resolved ruleset
   was published under a slug; `None` otherwise. Prefer this over
-  `bundle_id` for any reference that should survive bundle regeneration.
+  `ruleset_id` for any reference that should survive ruleset regeneration.
 - `SchemaResponse.slug` — same handle, surfaced from
-  `GET /bundles/{id}/schema`.
+  `GET /rulesets/{id}/schema`.
 
 ### Notes
-- Backwards-compatible. Existing code that reads `bundle_id` keeps
+- Backwards-compatible. Existing code that reads `ruleset_id` keeps
   working unchanged; `slug` is purely additive.
 - Requires the `aethis-core` engine release that surfaces the field in
-  `/decide` and `/bundles/{id}/schema` responses (rolling out 2026-04).
+  `/decide` and `/rulesets/{id}/schema` responses (rolling out 2026-04).
   Older engines will simply leave `slug=None`.
 
 ## 0.1.0 (initial)
 
 - Sync + async clients (`Aethis`, `AsyncAethis`) for `/decide`,
-  `/bundles/{id}/schema`, `/me`, `/bundles/{id}/explain`,
-  `/bundles/{id}/source`.
+  `/rulesets/{id}/schema`, `/me`, `/rulesets/{id}/explain`,
+  `/rulesets/{id}/source`.
 - Stateful decision adapters (`SyncDecisionSession`, `DecisionSession`).
 - Pydantic response models, exception hierarchy
   (`AethisError`, `AethisAPIError`, `AethisUnavailable`,

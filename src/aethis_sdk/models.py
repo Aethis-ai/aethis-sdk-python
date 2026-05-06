@@ -19,10 +19,10 @@ class NextQuestion(BaseModel):
 
 
 class SectionResult(BaseModel):
-    """Per-section result for multi-section bundles."""
+    """Per-section result for multi-section rulesets."""
 
     section_id: str
-    bundle_id: str | None = None
+    ruleset_id: str | None = None
     status: SectionStatus
 
 
@@ -30,10 +30,10 @@ class DecideResponse(BaseModel):
     """Response body from ``POST /api/v1/public/decide``."""
 
     decision: Decision
-    bundle_id: str | None = None
+    ruleset_id: str | None = None
     slug: str | None = None
     ruleset_id: str | None = None
-    bundle_version: str = "unknown"
+    ruleset_version: str = "unknown"
     fields_evaluated: int = 0
     fields_provided: int = 0
     missing_fields: list[str] | None = None
@@ -46,7 +46,7 @@ class DecideResponse(BaseModel):
 
 
 class SchemaField(BaseModel):
-    """A single field definition from a bundle schema."""
+    """A single field definition from a ruleset schema."""
 
     field_id: str
     field_type: str
@@ -56,8 +56,8 @@ class SchemaField(BaseModel):
 
 
 class SchemaResponse(BaseModel):
-    """Response body from ``GET /api/v1/public/bundles/{id}/schema``."""
+    """Response body from ``GET /api/v1/public/rulesets/{id}/schema``."""
 
-    bundle_id: str
+    ruleset_id: str
     slug: str | None = None
     fields: list[SchemaField]
