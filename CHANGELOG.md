@@ -4,6 +4,21 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.2 (2026-05-06)
+
+### Added
+- `DecideResponse.decision_id` — per-call audit identifier returned by the engine.
+- `DecideResponse.inputs_hash` — canonical SHA-256 fingerprint of the input set.
+- `DecideResponse.decision_time` — ISO-8601 timestamp of the decision.
+- `DecideResponse.engine_version` — `aethis-core@<semver>` string identifying the engine that produced the decision.
+
+### Fixed
+- `DecideResponse` previously declared `ruleset_id` twice; Pydantic silently overrode the first declaration with the second. Deduplicated.
+- The four audit fields above were already returned by `/api/v1/public/decide` but were silently dropped by Pydantic because the model didn't declare them. Callers can now read them directly off the typed response — no need to reach for the raw JSON. This is the audit-trail fingerprint that the docs and homepage prominently advertise (`inputs_hash`, `decision_id`); shipping an SDK that hid it was a defect.
+
+### Notes
+- Backwards-compatible. All four new fields default to `None`, so older engines that don't emit them still parse cleanly.
+
 ## 0.3.1 (2026-05-06)
 
 ### Fixed
