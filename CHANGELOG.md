@@ -4,6 +4,19 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.3 (2026-05-06)
+- docs: remove positioning paragraph above Install — reference surface (per aethis.os/positioning/surface-types.md); the tagline is enough
+
+## 0.4.2 (2026-05-06)
+- docs: add private-beta callout for authoring endpoints (decision endpoints remain anonymous)
+
+## 0.4.1 (2026-05-06)
+
+### Changed
+- docs: align README with positioning bible — add problem/solution/methodology intro paragraph before Install section.
+- docs: add `aethis-bible:` markers to derived copy blocks (sourced from `public-messaging.md §3/§4`).
+- fix: terminology audit found no deprecated "rule bundle" or `<5ms` instances in README; no replacements needed.
+
 ## 0.4.0 (2026-05-06)
 
 ### Changed
