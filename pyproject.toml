@@ -1,6 +1,6 @@
 [project]
 name = "aethis-sdk"
-version = "0.3.1"
+version = "0.3.2"
 description = "Official Python SDK for the Aethis developer API — eligibility decisions and ruleset schemas"
 readme = "README.md"
 requires-python = ">=3.11"

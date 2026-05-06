@@ -32,8 +32,11 @@ class DecideResponse(BaseModel):
     decision: Decision
     ruleset_id: str | None = None
     slug: str | None = None
-    ruleset_id: str | None = None
     ruleset_version: str = "unknown"
+    engine_version: str | None = None
+    decision_id: str | None = None
+    inputs_hash: str | None = None
+    decision_time: str | None = None
     fields_evaluated: int = 0
     fields_provided: int = 0
     missing_fields: list[str] | None = None
