@@ -4,6 +4,16 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.3 (2026-05-06)
+
+### Changed
+- README quickstart now targets `aethis/uk-fsm/child-eligibility` — a live public ruleset — instead of the dated `eng_lang:20250912-ec5d7c23` ID. Sync, async, and `SyncDecisionSession` examples all updated.
+- `examples/oneshot.py` env var renamed from `AETHIS_BUNDLE_ID` to `AETHIS_RULESET_ID` to match the 0.3.0 `bundle → ruleset` rename. Now also targets `aethis/uk-fsm/child-eligibility` by default.
+- README and `examples/oneshot.py` now print the audit fields (`inputs_hash`, `decision_id`, `decision_time`, `engine_version`) added in 0.3.2 — the determinism proof points the docs and homepage advertise.
+
+### Notes
+- README-only change — no code changes. Pure refresh of published examples to match the current public surface.
+
 ## 0.3.2 (2026-05-06)
 
 ### Added

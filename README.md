@@ -18,6 +18,8 @@ Python 3.11+. Requires `httpx` and `pydantic`.
 
 ## Quickstart
 
+Examples below target `aethis/uk-fsm/child-eligibility` — a live public ruleset (UK Free School Meals, child-eligibility section). Browse other live rulesets with `curl https://api.aethis.ai/api/v1/public/rulesets`.
+
 ### One-shot decision (sync)
 
 ```python
@@ -25,14 +27,19 @@ from aethis_sdk import Aethis
 
 with Aethis(api_key="YOUR_KEY") as client:
     response = client.decide(
-        ruleset_id="eng_lang:20250912-ec5d7c23",
+        ruleset_id="aethis/uk-fsm/child-eligibility",
         field_values={
-            "nationality": "French",
-            "degree_awarded_in_uk": True,
+            "child.age": 10,
+            "child.school_type": "state_funded",
         },
     )
-    print(response.decision)  # "eligible" | "not_eligible" | "undetermined"
+    print(response.decision)        # "eligible" | "not_eligible" | "undetermined"
+    print(response.inputs_hash)     # canonical SHA-256 fingerprint of the input set
+    print(response.decision_id)     # per-call audit identifier
+    print(response.engine_version)  # e.g. "aethis-core@0.10.0"
 ```
+
+The four audit fields above (`inputs_hash`, `decision_id`, `decision_time`, `engine_version`) ship in 0.3.2. Same `inputs_hash` always produces the same outcome from the same `engine_version` — store these alongside the decision for a defensible audit trail.
 
 ### One-shot decision (async)
 
@@ -43,8 +50,8 @@ from aethis_sdk import AsyncAethis
 async def main():
     async with AsyncAethis(api_key="YOUR_KEY") as client:
         response = await client.decide(
-            ruleset_id="eng_lang:20250912-ec5d7c23",
-            field_values={"nationality": "French"},
+            ruleset_id="aethis/uk-fsm/child-eligibility",
+            field_values={"child.age": 10, "child.school_type": "state_funded"},
         )
         print(response.decision)
 
@@ -58,15 +65,19 @@ Accumulate answers locally and query the API only when needed. Cached until an a
 ```python
 from aethis_sdk import Aethis, SyncDecisionSession
 
+RULESET_ID = "aethis/uk-fsm/child-eligibility"
+
 with Aethis(api_key="YOUR_KEY") as client:
-    schema = client.get_schema("eng_lang:20250912-ec5d7c23")
-    session = SyncDecisionSession("eng_lang:20250912-ec5d7c23", client, schema)
-    session.answer("nationality", "French")
+    schema = client.get_schema(RULESET_ID)
+    session = SyncDecisionSession(RULESET_ID, client, schema)
+    session.answer("child.school_type", "state_funded")
     while (nq := session.next_question()) is not None:
         answer = input(f"{nq.question} ")
         session.answer(nq.field_id, answer)
     print("Eligible:", session.is_eligible())
 ```
+
+Note: `input()` returns a string. For non-string fields (int / bool / enum) coerce the answer before calling `session.answer()` — the API expects the typed value.
 
 The async equivalent is `DecisionSession` — same surface, `await` on the HTTP methods (`decide`, `is_eligible`, `next_question`, `status`).
 
