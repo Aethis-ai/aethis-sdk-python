@@ -1,5 +1,7 @@
 """Official Python SDK for the Aethis developer API."""
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
 from aethis_sdk.client import Aethis, AsyncAethis
 from aethis_sdk.errors import (
     AethisAPIError,
@@ -18,7 +20,10 @@ from aethis_sdk.models import (
 )
 from aethis_sdk.session import DecisionSession, SessionStatus, SyncDecisionSession
 
-__version__ = "0.1.0"
+try:
+    __version__ = _pkg_version("aethis-sdk")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "__version__",

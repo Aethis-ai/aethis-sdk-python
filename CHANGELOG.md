@@ -4,6 +4,15 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.1 (2026-05-06)
+
+### Fixed
+- `aethis_sdk.__version__` now resolves from installed package metadata via `importlib.metadata` instead of a hardcoded constant. Previously reported `"0.1.0"` on every install regardless of the actual package version. Falls back to `"0.0.0+unknown"` only if the package is imported without being installed (editable dev or zip-on-PYTHONPATH).
+- Package description on PyPI: `"…and bundle schemas"` → `"…and ruleset schemas"` to match the v0.3.0 public-surface rename.
+
+### Added
+- README PyPI / Python-version / License shields.
+
 ## 0.3.0 (2026-05-05)
 
 ### Changed (Breaking)

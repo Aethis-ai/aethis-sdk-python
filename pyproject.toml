@@ -1,7 +1,7 @@
 [project]
 name = "aethis-sdk"
-version = "0.3.0"
-description = "Official Python SDK for the Aethis developer API — eligibility decisions and bundle schemas"
+version = "0.3.1"
+description = "Official Python SDK for the Aethis developer API — eligibility decisions and ruleset schemas"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

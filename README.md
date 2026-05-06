@@ -1,5 +1,9 @@
 # Aethis SDK for Python
 
+[![PyPI](https://img.shields.io/pypi/v/aethis-sdk)](https://pypi.org/project/aethis-sdk/)
+[![Python](https://img.shields.io/pypi/pyversions/aethis-sdk)](https://pypi.org/project/aethis-sdk/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligibility decisions, ruleset schemas, and stateful decision sessions.
 
 **Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
