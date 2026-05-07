@@ -8,7 +8,7 @@ Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligib
 
 **Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
 
-> **Authoring is in private beta.** Decision endpoints are public — `Aethis()` works with no key. Authoring endpoints (rule generation, publishing) require an invite. The CLI ([aethis-cli](https://pypi.org/project/aethis-cli/)) is the supported authoring path during the beta. Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
+> **Authoring is in private beta.** Decision endpoints are public — `Aethis()` works with no key. Authoring endpoints require an invite. The CLI ([aethis-cli](https://pypi.org/project/aethis-cli/)) is the supported authoring path during the beta — see [docs.aethis.ai/recipes/author-a-rule](https://docs.aethis.ai/recipes/author-a-rule) for the test-driven workflow (rulesets cannot publish with a failing test). Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
 
 ## Install
 
