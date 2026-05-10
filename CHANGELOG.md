@@ -4,6 +4,9 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.5 (2026-05-10)
+- fix: update `examples/session.py` to use `AETHIS_RULESET_ID` env var (was deprecated `AETHIS_BUNDLE_ID`) and replace stale internal default with the public `aethis/construction-all-risks` slug
+
 ## 0.4.4 (2026-05-07)
 - docs: link to the test-driven authoring guide on docs.aethis.ai and surface the publish-gate guarantee (rulesets cannot publish with a failing test) in the private-beta callout. Reference surface only — no code changes
 

@@ -27,7 +27,7 @@ def main() -> int:
         print("AETHIS_API_KEY is required", file=sys.stderr)
         return 1
 
-    ruleset_id = os.environ.get("AETHIS_BUNDLE_ID", "eng_lang:20250912-ec5d7c23")
+    ruleset_id = os.environ.get("AETHIS_RULESET_ID", "aethis/construction-all-risks")
 
     with Aethis(api_key=api_key) as client:
         schema = client.get_schema(ruleset_id)
