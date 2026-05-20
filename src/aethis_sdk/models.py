@@ -63,4 +63,41 @@ class SchemaResponse(BaseModel):
 
     ruleset_id: str
     slug: str | None = None
+    name: str | None = None
     fields: list[SchemaField]
+
+
+class RulesetSummary(BaseModel):
+    """One item from ``GET /api/v1/public/rulesets`` (anonymous catalogue).
+
+    ``name`` is the human-readable section name surfaced by aethis-core
+    v0.18.0 onward. Historical rulesets published before the backfill
+    serialise with ``name=None``.
+    """
+
+    ruleset_id: str
+    slug: str | None = None
+    section_id: str
+    name: str | None = None
+    description: str
+    field_count: int
+    rule_count: int
+
+
+class RulesetListItem(BaseModel):
+    """One item from ``GET /api/v1/public/projects/{id}/rulesets``.
+
+    Project-scoped listing — requires an API key. ``name`` mirrors the
+    field added to ``RulesetSummary`` in aethis-core v0.18.0; pre-backfill
+    rulesets serialise with ``name=None``.
+    """
+
+    ruleset_id: str
+    section_id: str
+    name: str | None = None
+    status: str
+    version: str
+    label: str | None = None
+    total_fields: int
+    total_rules: int
+    created_at: str | None = None

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from aethis_sdk import DecideResponse
+from aethis_sdk import (
+    DecideResponse,
+    RulesetListItem,
+    RulesetSummary,
+    SchemaResponse,
+)
 
 
 class TestDecideResponseAuditFields:
@@ -53,3 +58,76 @@ class TestDecideResponseAuditFields:
             {"decision": "eligible", "ruleset_id": "test:v1"}
         )
         assert resp.ruleset_id == "test:v1"
+
+
+class TestRulesetNameField:
+    """The ``name`` field added in aethis-core v0.18.0 must round-trip
+    through the SDK's typed listing models, and remain optional so that
+    pre-backfill rulesets (which serialise ``name=None``) keep parsing.
+    """
+
+    def test_ruleset_summary_has_name_field(self):
+        assert "name" in RulesetSummary.model_fields
+
+    def test_ruleset_list_item_has_name_field(self):
+        assert "name" in RulesetListItem.model_fields
+
+    def test_schema_response_has_name_field(self):
+        assert "name" in SchemaResponse.model_fields
+
+    def test_ruleset_summary_round_trip_with_name(self):
+        payload = {
+            "ruleset_id": "construction-all-risks:20260517-a7234924",
+            "slug": "aethis/construction-all-risks",
+            "section_id": "construction-all-risks",
+            "name": "Construction All Risks",
+            "description": "Generated via agent authoring",
+            "field_count": 14,
+            "rule_count": 8,
+        }
+        item = RulesetSummary.model_validate(payload)
+        assert item.name == "Construction All Risks"
+        assert item.slug == "aethis/construction-all-risks"
+
+    def test_ruleset_summary_name_optional_for_pre_backfill(self):
+        """Historical rulesets published before the v0.18.0 backfill
+        return ``name=None`` and must still parse."""
+        payload = {
+            "ruleset_id": "legacy:20260101-deadbeef",
+            "slug": "aethis/legacy",
+            "section_id": "legacy",
+            "description": "Pre-backfill ruleset",
+            "field_count": 3,
+            "rule_count": 2,
+        }
+        item = RulesetSummary.model_validate(payload)
+        assert item.name is None
+
+    def test_ruleset_list_item_round_trip_with_name(self):
+        payload = {
+            "ruleset_id": "myproj-criteria:20260518-abc123",
+            "section_id": "myproj-criteria",
+            "name": "MyProj Eligibility Criteria",
+            "status": "active",
+            "version": "1.0.0",
+            "label": None,
+            "total_fields": 5,
+            "total_rules": 3,
+            "created_at": "2026-05-18T10:00:00Z",
+        }
+        item = RulesetListItem.model_validate(payload)
+        assert item.name == "MyProj Eligibility Criteria"
+        assert item.status == "active"
+
+    def test_schema_response_round_trip_with_name(self):
+        payload = {
+            "ruleset_id": "construction-all-risks:20260517-a7234924",
+            "slug": "aethis/construction-all-risks",
+            "name": "Construction All Risks",
+            "fields": [
+                {"field_id": "site_address", "field_type": "string"},
+            ],
+        }
+        resp = SchemaResponse.model_validate(payload)
+        assert resp.name == "Construction All Risks"
+        assert resp.fields[0].field_id == "site_address"
