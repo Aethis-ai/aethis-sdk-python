@@ -13,16 +13,19 @@ Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligib
 ## Install
 
 ```bash
-pip install aethis-sdk
+uv add aethis-sdk
+
+# Or, for a standalone venv:
+uv pip install aethis-sdk
 ```
 
-Python 3.11+. Requires `httpx` and `pydantic`.
+Python 3.11+. Requires `httpx` and `pydantic`. SDK v0.5.0+ ships the composed-rulebook decision surface (`decide_rulebook`) and `rulebook_id` on `DecideResponse`.
 
 ## Quickstart
 
 Examples below target `aethis/uk-fsm/child-eligibility` — a live public ruleset (UK Free School Meals, child-eligibility section). Browse all live rulesets with `curl https://api.aethis.ai/api/v1/public/rulesets`.
 
-Evaluation endpoints are anonymous during the developer beta — `Aethis()` works with no key. Pass `api_key="ak_live_..."` only if you're calling authoring endpoints (publishing rulesets, etc.).
+Single-ruleset decision endpoints are anonymous on public rulesets — `Aethis()` works with no key. Composed-rulebook decisions (`decide_rulebook`) and authoring endpoints require an API key. Pass `api_key="ak_live_..."` to `Aethis(...)` for those paths.
 
 ### One-shot decision (sync)
 
@@ -40,7 +43,7 @@ with Aethis() as client:
     print(response.decision)        # "eligible" | "not_eligible" | "undetermined"
     print(response.inputs_hash)     # canonical SHA-256 fingerprint of the input set
     print(response.decision_id)     # per-call audit identifier
-    print(response.engine_version)  # e.g. "aethis-core@0.10.0"
+    print(response.engine_version)  # e.g. "aethis-core@0.27.0"
 ```
 
 The four audit fields above (`inputs_hash`, `decision_id`, `decision_time`, `engine_version`) ship in 0.3.2+. Same `inputs_hash` always produces the same outcome from the same `engine_version` — store these alongside the decision for a defensible audit trail.
@@ -61,6 +64,36 @@ async def main():
 
 asyncio.run(main())
 ```
+
+### Composed rulebook (requires API key — v0.5.0+)
+
+A Rulebook composes multiple rulesets via an `outcome_logic` expression — e.g. UK FSM's `child_eligibility AND (household_criteria OR universal_infant)`. Hit the whole-form decision with `decide_rulebook`:
+
+```python
+from aethis_sdk import Aethis
+
+with Aethis(api_key="ak_live_...") as client:
+    response = client.decide_rulebook(
+        rulebook_id="aethis/uk-fsm",
+        field_values={
+            "child.age": 10, "child.year_group": "year_6",
+            "child.school_type": "state_funded",
+            "household.receives_universal_credit": True,
+            "household.annual_net_earnings": 5000,
+            "household.receives_income_support": False,
+            "household.receives_income_based_jsa": False,
+            "household.receives_income_related_esa": False,
+            "household.receives_child_tax_credit_only": False,
+            "household.receives_nass_support": False,
+            "child.is_looked_after": False,
+            "child.is_care_leaver": False,
+        },
+    )
+    print(response.decision)      # "eligible"
+    print(response.rulebook_id)   # "rb_kzZ_td0tbKW_OLRB" (slug resolved)
+```
+
+Rulebook decide is **always** scope-gated by the engine — anonymous callers get HTTP 401, regardless of rulebook visibility. The `decide_rulebook` method and the `rulebook_id` field on `DecideResponse` ship in SDK v0.5.0. `AsyncAethis.decide_rulebook(...)` is the async equivalent.
 
 ### Stateful decision session
 
