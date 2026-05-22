@@ -4,6 +4,10 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.5.0 (2026-05-22)
+- **feat(rulebook): `Aethis.decide_rulebook()` + `AsyncAethis.decide_rulebook()`** — evaluate a composed multi-ruleset rulebook through the SDK. Mirrors `decide()` but sends `rulebook_id` in the payload. Accepts either an opaque `rb_<id>` or a slug (e.g. `aethis/uk-fsm`). Requires an API key — rulebook evaluation is always scope-gated. Closes [#14](https://github.com/Aethis-ai/aethis-sdk-python/issues/14). Requires aethis-core v0.27.0+ live on the target API for slug-form rulebook paths.
+- **feat(models): add `rulebook_id: Optional[str]` to `DecideResponse`** — surfaces the rulebook identifier when the response was a composed-rulebook decide. Backwards-compatible: ruleset-only decides keep `rulebook_id=None`.
+
 ## 0.4.6 (2026-05-20)
 - feat(models): add `name: Optional[str]` to ruleset response models — surfaces the human-readable section name introduced in aethis-core v0.18.0. Adds `RulesetSummary` (anonymous catalogue / `GET /api/v1/public/rulesets`) and `RulesetListItem` (project-scoped / `GET /api/v1/public/projects/{id}/rulesets`) as typed models, and adds the same `name` field to `SchemaResponse`. Backwards-compatible: pre-backfill rulesets serialise with `name=None`.
 

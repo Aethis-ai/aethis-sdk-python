@@ -113,6 +113,66 @@ class TestDecide:
         assert exc_info.value.status_code == 404
 
 
+class TestDecideRulebook:
+    """Aethis-ai/aethis-sdk-python#14 — rulebook surface on the SDK."""
+
+    def test_sends_rulebook_id_payload(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v1/public/decide"
+            body = json.loads(request.content)
+            assert body == {
+                "rulebook_id": "aethis/uk-fsm",
+                "field_values": {"child.age": 10},
+                "include_trace": False,
+            }
+            return httpx.Response(
+                200,
+                json=make_decide_response(
+                    decision="eligible",
+                    ruleset_id=None,
+                    rulebook_id="rb_kzZ_td0tbKW_OLRB",
+                    slug="aethis/uk-fsm",
+                ),
+            )
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = client.decide_rulebook("aethis/uk-fsm", {"child.age": 10})
+
+        assert isinstance(resp, DecideResponse)
+        assert resp.decision == "eligible"
+        assert resp.rulebook_id == "rb_kzZ_td0tbKW_OLRB"
+        assert resp.ruleset_id is None
+
+    def test_passes_include_trace_through(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["include_trace"] is True
+            return httpx.Response(200, json=make_decide_response(rulebook_id="rb_x"))
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            client.decide_rulebook("rb_x", {}, include_trace=True)
+
+    def test_accepts_opaque_id_or_slug(self):
+        seen_payloads: list[dict] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_payloads.append(json.loads(request.content))
+            return httpx.Response(200, json=make_decide_response())
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            client.decide_rulebook("rb_kzZ_td0tbKW_OLRB", {})
+            client.decide_rulebook("aethis/uk-fsm", {})
+
+        assert seen_payloads[0]["rulebook_id"] == "rb_kzZ_td0tbKW_OLRB"
+        assert seen_payloads[1]["rulebook_id"] == "aethis/uk-fsm"
+
+
 class TestGetSchema:
     def test_returns_parsed_response(self):
         def handler(request: httpx.Request) -> httpx.Response:
