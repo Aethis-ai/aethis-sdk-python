@@ -4,6 +4,12 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.5.1 (2026-05-22)
+- **docs(readme): rulebook surface advertised on the PyPI landing page.** The v0.5.0 release shipped `decide_rulebook()` and `rulebook_id` on `DecideResponse`, but the README still framed the SDK as ruleset-only. Adds a dedicated "Composed rulebook" section with a runnable UK FSM example, the always-scope-gated note, and the async equivalent.
+- **docs(install): switch `pip install` to `uv add` per workspace no-pip rule.** The PyPI landing page is a public-facing surface bound by `.claude/rules/no-pip.md`. Adds `uv pip install` as a venv-friendly alternative.
+- **docs(engine_version): update sample audit-field comment from `aethis-core@0.10.0` to `aethis-core@0.27.0`** — matches live prod engine.
+- **docs(beta): clarify that decision endpoints are anonymous only for single rulesets** — rulebook decide is always scope-gated, so the SDK's "anonymous when no key" claim needed a footnote.
+
 ## 0.5.0 (2026-05-22)
 - **feat(rulebook): `Aethis.decide_rulebook()` + `AsyncAethis.decide_rulebook()`** — evaluate a composed multi-ruleset rulebook through the SDK. Mirrors `decide()` but sends `rulebook_id` in the payload. Accepts either an opaque `rb_<id>` or a slug (e.g. `aethis/uk-fsm`). Requires an API key — rulebook evaluation is always scope-gated. Closes [#14](https://github.com/Aethis-ai/aethis-sdk-python/issues/14). Requires aethis-core v0.27.0+ live on the target API for slug-form rulebook paths.
 - **feat(models): add `rulebook_id: Optional[str]` to `DecideResponse`** — surfaces the rulebook identifier when the response was a composed-rulebook decide. Backwards-compatible: ruleset-only decides keep `rulebook_id=None`.
