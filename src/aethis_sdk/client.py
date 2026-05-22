@@ -49,6 +49,18 @@ def _decide_payload(
     }
 
 
+def _decide_rulebook_payload(
+    rulebook_id: str,
+    field_values: dict[str, Any],
+    include_trace: bool,
+) -> dict[str, Any]:
+    return {
+        "rulebook_id": rulebook_id,
+        "field_values": field_values,
+        "include_trace": include_trace,
+    }
+
+
 class Aethis:
     """Synchronous client for the Aethis public API.
 
@@ -102,6 +114,30 @@ class Aethis:
     ) -> DecideResponse:
         """Evaluate a ruleset against the supplied field values."""
         resp = self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
+        return DecideResponse.model_validate(resp.json())
+
+    def decide_rulebook(
+        self,
+        rulebook_id: str,
+        field_values: dict[str, Any],
+        include_trace: bool = False,
+    ) -> DecideResponse:
+        """Evaluate a composed rulebook against the supplied field values.
+
+        A rulebook composes multiple rulesets and applies an ``outcome_logic``
+        expression across them. ``rulebook_id`` may be either an opaque
+        ``rb_<id>`` or a slug (e.g. ``aethis/uk-fsm``); the same shape applies
+        whether the slug is single- or multi-segment.
+
+        Unlike :meth:`decide`, rulebook evaluation is always scope-gated —
+        anonymous callers get an HTTP 401. Supply ``api_key=...`` when
+        constructing the client.
+        """
+        resp = self._request(
+            "POST",
+            DECIDE_PATH,
+            json=_decide_rulebook_payload(rulebook_id, field_values, include_trace),
+        )
         return DecideResponse.model_validate(resp.json())
 
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
@@ -207,6 +243,24 @@ class AsyncAethis:
     ) -> DecideResponse:
         """Evaluate a ruleset against the supplied field values."""
         resp = await self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
+        return DecideResponse.model_validate(resp.json())
+
+    async def decide_rulebook(
+        self,
+        rulebook_id: str,
+        field_values: dict[str, Any],
+        include_trace: bool = False,
+    ) -> DecideResponse:
+        """Evaluate a composed rulebook against the supplied field values.
+
+        Async counterpart to :meth:`Aethis.decide_rulebook`. Rulebook
+        evaluation requires an API key — anonymous callers get HTTP 401.
+        """
+        resp = await self._request(
+            "POST",
+            DECIDE_PATH,
+            json=_decide_rulebook_payload(rulebook_id, field_values, include_trace),
+        )
         return DecideResponse.model_validate(resp.json())
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:

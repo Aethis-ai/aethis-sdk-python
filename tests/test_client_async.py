@@ -151,6 +151,39 @@ class TestDecide:
                 await client.decide("ruleset:v1", {})
 
 
+class TestDecideRulebook:
+    """Aethis-ai/aethis-sdk-python#14 — async rulebook surface."""
+
+    async def test_sends_rulebook_id_payload(self):
+        import json
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v1/public/decide"
+            body = json.loads(request.content)
+            assert body == {
+                "rulebook_id": "aethis/uk-fsm",
+                "field_values": {"child.age": 10},
+                "include_trace": False,
+            }
+            return httpx.Response(
+                200,
+                json=make_decide_response(
+                    decision="eligible",
+                    ruleset_id=None,
+                    rulebook_id="rb_kzZ_td0tbKW_OLRB",
+                    slug="aethis/uk-fsm",
+                ),
+            )
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = await client.decide_rulebook("aethis/uk-fsm", {"child.age": 10})
+
+        assert resp.decision == "eligible"
+        assert resp.rulebook_id == "rb_kzZ_td0tbKW_OLRB"
+        assert resp.ruleset_id is None
+
+
 class TestGetSchema:
     async def test_returns_parsed_response_on_200(self):
         def handler(request: httpx.Request) -> httpx.Response:

@@ -27,10 +27,16 @@ class SectionResult(BaseModel):
 
 
 class DecideResponse(BaseModel):
-    """Response body from ``POST /api/v1/public/decide``."""
+    """Response body from ``POST /api/v1/public/decide``.
+
+    Carries either ``ruleset_id`` (single-ruleset decide) or ``rulebook_id``
+    (composed multi-ruleset rulebook decide). ``slug`` echoes whichever
+    identifier was used as a slug — opaque ``rb_*`` ids leave it ``None``.
+    """
 
     decision: Decision
     ruleset_id: str | None = None
+    rulebook_id: str | None = None
     slug: str | None = None
     ruleset_version: str = "unknown"
     engine_version: str | None = None
