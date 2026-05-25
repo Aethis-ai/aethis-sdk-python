@@ -4,6 +4,9 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.6.0 (2026-05-25)
+- **feat(explain-failure): `Aethis.explain_failure()` + `AsyncAethis.explain_failure()`** — wraps `POST /api/v1/public/rulesets/{ruleset_id}/explain-failure`, returning the failing criterion and a targeted fix hint for a mismatched `/decide` result. Accepts `field_values`, `expected_outcome` (`"eligible"` | `"not_eligible"` | `"undetermined"`), and an optional `test_name` (default `"test"`). Return type is `dict[str, Any]` to match `explain()` / `get_source()` — can be tightened once the response shape stabilises. Note: `ruleset_id` must be the concrete identifier (not a slug); the underlying endpoint does not currently resolve slugs. Previously, callers had to drop to raw `httpx` for this endpoint — flagged in `recipes/evaluate-a-case.mdx` and `recipes/debug-a-decide.mdx`.
+
 ## 0.5.1 (2026-05-22)
 - **docs(readme): rulebook surface advertised on the PyPI landing page.** The v0.5.0 release shipped `decide_rulebook()` and `rulebook_id` on `DecideResponse`, but the README still framed the SDK as ruleset-only. Adds a dedicated "Composed rulebook" section with a runnable UK FSM example, the always-scope-gated note, and the async equivalent.
 - **docs(install): switch `pip install` to `uv add` per workspace no-pip rule.** The PyPI landing page is a public-facing surface bound by `.claude/rules/no-pip.md`. Adds `uv pip install` as a venv-friendly alternative.
