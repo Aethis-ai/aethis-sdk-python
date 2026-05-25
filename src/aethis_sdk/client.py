@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -67,7 +67,7 @@ def _decide_rulebook_payload(
 
 def _explain_failure_payload(
     field_values: dict[str, Any],
-    expected_outcome: str,
+    expected_outcome: Literal["eligible", "not_eligible", "undetermined"],
     test_name: str,
 ) -> dict[str, Any]:
     return {
@@ -180,7 +180,7 @@ class Aethis:
         self,
         ruleset_id: str,
         field_values: dict[str, Any],
-        expected_outcome: str,
+        expected_outcome: Literal["eligible", "not_eligible", "undetermined"],
         test_name: str = "test",
     ) -> dict[str, Any]:
         """Diagnose a failing /decide for a ruleset, returning the criterion that
@@ -327,7 +327,7 @@ class AsyncAethis:
         self,
         ruleset_id: str,
         field_values: dict[str, Any],
-        expected_outcome: str,
+        expected_outcome: Literal["eligible", "not_eligible", "undetermined"],
         test_name: str = "test",
     ) -> dict[str, Any]:
         """Diagnose a failing /decide for a ruleset, returning the criterion that
@@ -335,9 +335,8 @@ class AsyncAethis:
 
         Async counterpart to :meth:`Aethis.explain_failure`.
 
-        `ruleset_id` must be the concrete identifier (not a slug) — the
-        underlying endpoint does not currently resolve slugs. Pull it from the
-        `ruleset_id` field on the `DecideResponse` you got back from `decide()`.
+        `ruleset_id` must be the concrete identifier, not a slug — see
+        :meth:`Aethis.explain_failure`.
 
         `expected_outcome` is what you thought the decision *should* have been:
         one of `"eligible"`, `"not_eligible"`, or `"undetermined"`.
