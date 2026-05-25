@@ -248,6 +248,101 @@ class TestReadOnlyEndpoints:
         assert resp == {"text": "legislation excerpt"}
 
 
+class TestExplainFailure:
+    """POST /api/v1/public/rulesets/{ruleset_id}/explain-failure SDK wrapper — async."""
+
+    async def test_happy_path_returns_dict(self):
+        expected_response = {
+            "failing_criterion": "age >= 18",
+            "fix_hint": "Provide a value for 'age' that satisfies the criterion.",
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v1/public/rulesets/rs_abc123/explain-failure"
+            assert request.method == "POST"
+            body = json.loads(request.content)
+            assert body["field_values"] == {"age": 15}
+            assert body["expected_outcome"] == "eligible"
+            assert body["test_name"] == "test"
+            return httpx.Response(200, json=expected_response)
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = await client.explain_failure("rs_abc123", {"age": 15}, "eligible")
+
+        assert resp == expected_response
+
+    async def test_default_test_name_is_test(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["test_name"] == "test"
+            return httpx.Response(200, json={"failing_criterion": "x"})
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.explain_failure("rs_abc123", {}, "not_eligible")
+
+    async def test_custom_test_name_is_forwarded(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["test_name"] == "my_scenario"
+            return httpx.Response(200, json={"failing_criterion": "x"})
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.explain_failure("rs_abc123", {}, "eligible", test_name="my_scenario")
+
+    async def test_expected_outcome_eligible(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["expected_outcome"] == "eligible"
+            return httpx.Response(200, json={})
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.explain_failure("rs_abc123", {}, "eligible")
+
+    async def test_expected_outcome_not_eligible(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["expected_outcome"] == "not_eligible"
+            return httpx.Response(200, json={})
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.explain_failure("rs_abc123", {}, "not_eligible")
+
+    async def test_expected_outcome_undetermined(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            assert body["expected_outcome"] == "undetermined"
+            return httpx.Response(200, json={})
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            await client.explain_failure("rs_abc123", {}, "undetermined")
+
+    async def test_422_raises_api_error(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                422,
+                json={"detail": [{"loc": ["body", "expected_outcome"], "msg": "value is not a valid enum member"}]},
+            )
+
+        async with AsyncAethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            with pytest.raises(AethisAPIError) as exc_info:
+                await client.explain_failure("rs_abc123", {}, "invalid_outcome")
+        assert exc_info.value.status_code == 422
+
+
 class TestConfig:
     def test_https_enforced_on_non_local_url(self):
         with pytest.raises(ValueError, match="HTTPS"):

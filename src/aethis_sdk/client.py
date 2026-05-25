@@ -37,6 +37,10 @@ def _source_path(ruleset_id: str) -> str:
     return f"/api/v1/public/rulesets/{ruleset_id}/source"
 
 
+def _explain_failure_path(ruleset_id: str) -> str:
+    return f"/api/v1/public/rulesets/{ruleset_id}/explain-failure"
+
+
 def _decide_payload(
     ruleset_id: str,
     field_values: dict[str, Any],
@@ -58,6 +62,18 @@ def _decide_rulebook_payload(
         "rulebook_id": rulebook_id,
         "field_values": field_values,
         "include_trace": include_trace,
+    }
+
+
+def _explain_failure_payload(
+    field_values: dict[str, Any],
+    expected_outcome: str,
+    test_name: str,
+) -> dict[str, Any]:
+    return {
+        "field_values": field_values,
+        "expected_outcome": expected_outcome,
+        "test_name": test_name,
     }
 
 
@@ -158,6 +174,30 @@ class Aethis:
     def get_source(self, ruleset_id: str) -> dict[str, Any]:
         """Return the source-text provenance for a ruleset."""
         resp = self._request("GET", _source_path(ruleset_id))
+        return resp.json()
+
+    def explain_failure(
+        self,
+        ruleset_id: str,
+        field_values: dict[str, Any],
+        expected_outcome: str,
+        test_name: str = "test",
+    ) -> dict[str, Any]:
+        """Diagnose a failing /decide for a ruleset, returning the criterion that
+        failed and a targeted fix hint.
+
+        `ruleset_id` must be the concrete identifier (not a slug) — the
+        underlying endpoint does not currently resolve slugs. Pull it from the
+        `ruleset_id` field on the `DecideResponse` you got back from `decide()`.
+
+        `expected_outcome` is what you thought the decision *should* have been:
+        one of `"eligible"`, `"not_eligible"`, or `"undetermined"`.
+        """
+        resp = self._request(
+            "POST",
+            _explain_failure_path(ruleset_id),
+            json=_explain_failure_payload(field_values, expected_outcome, test_name),
+        )
         return resp.json()
 
     # Internal ----------------------------------------------------------
@@ -281,6 +321,32 @@ class AsyncAethis:
     async def get_source(self, ruleset_id: str) -> dict[str, Any]:
         """Return the source-text provenance for a ruleset."""
         resp = await self._request("GET", _source_path(ruleset_id))
+        return resp.json()
+
+    async def explain_failure(
+        self,
+        ruleset_id: str,
+        field_values: dict[str, Any],
+        expected_outcome: str,
+        test_name: str = "test",
+    ) -> dict[str, Any]:
+        """Diagnose a failing /decide for a ruleset, returning the criterion that
+        failed and a targeted fix hint.
+
+        Async counterpart to :meth:`Aethis.explain_failure`.
+
+        `ruleset_id` must be the concrete identifier (not a slug) — the
+        underlying endpoint does not currently resolve slugs. Pull it from the
+        `ruleset_id` field on the `DecideResponse` you got back from `decide()`.
+
+        `expected_outcome` is what you thought the decision *should* have been:
+        one of `"eligible"`, `"not_eligible"`, or `"undetermined"`.
+        """
+        resp = await self._request(
+            "POST",
+            _explain_failure_path(ruleset_id),
+            json=_explain_failure_payload(field_values, expected_outcome, test_name),
+        )
         return resp.json()
 
     # Internal ----------------------------------------------------------
