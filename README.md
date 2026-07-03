@@ -132,10 +132,13 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 
 | Import | Purpose |
 |---|---|
-| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/rulesets/{id}/schema`, `/me`, `/rulesets/{id}/explain`, `/rulesets/{id}/source` |
+| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/rulesets`, `/rulesets/{id}/schema`, `/me`, `/rulesets/{id}/explain`, `/rulesets/{id}/source` |
+| `decide`, `decide_rulebook` | Single-ruleset and composed-rulebook decisions; both take `include_trace` and `include_explanation` |
+| `explain_failure` | Diagnose a mismatched `/decide` — returns the failing criterion and a fix hint |
+| `list_rulesets` | Page the public ruleset catalogue (`RulesetSummary` items) |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
-| `DecideResponse`, `SchemaResponse`, `SchemaField`, `NextQuestion`, `SectionResult` | Pydantic response models |
-| `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy |
+| `DecideResponse`, `SchemaResponse`, `SchemaField`, `NextQuestion`, `FieldNote`, `SectionResult`, `RulesetSummary` | Pydantic response models |
+| `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy (`.detail` / `.body` carry the API's error payload) |
 
 ## Configuration
 

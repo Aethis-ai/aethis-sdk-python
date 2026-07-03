@@ -19,10 +19,11 @@ from aethis_sdk._base import (
     validate_base_url,
 )
 from aethis_sdk.errors import AethisError, AethisTimeout
-from aethis_sdk.models import DecideResponse, SchemaResponse
+from aethis_sdk.models import DecideResponse, RulesetSummary, SchemaResponse
 
 DECIDE_PATH = "/api/v1/public/decide"
 WHOAMI_PATH = "/api/v1/public/me"
+RULESETS_PATH = "/api/v1/public/rulesets"
 
 
 def _schema_path(ruleset_id: str) -> str:
@@ -45,11 +46,13 @@ def _decide_payload(
     ruleset_id: str,
     field_values: dict[str, Any],
     include_trace: bool,
+    include_explanation: bool,
 ) -> dict[str, Any]:
     return {
         "ruleset_id": ruleset_id,
         "field_values": field_values,
         "include_trace": include_trace,
+        "include_explanation": include_explanation,
     }
 
 
@@ -57,11 +60,13 @@ def _decide_rulebook_payload(
     rulebook_id: str,
     field_values: dict[str, Any],
     include_trace: bool,
+    include_explanation: bool,
 ) -> dict[str, Any]:
     return {
         "rulebook_id": rulebook_id,
         "field_values": field_values,
         "include_trace": include_trace,
+        "include_explanation": include_explanation,
     }
 
 
@@ -127,9 +132,18 @@ class Aethis:
         ruleset_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
+        include_explanation: bool = False,
     ) -> DecideResponse:
-        """Evaluate a ruleset against the supplied field values."""
-        resp = self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
+        """Evaluate a ruleset against the supplied field values.
+
+        Set ``include_explanation=True`` to populate ``DecideResponse.explanation``
+        with the layered, criterion-by-criterion breakdown of the decision.
+        """
+        resp = self._request(
+            "POST",
+            DECIDE_PATH,
+            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation),
+        )
         return DecideResponse.model_validate(resp.json())
 
     def decide_rulebook(
@@ -137,6 +151,7 @@ class Aethis:
         rulebook_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
+        include_explanation: bool = False,
     ) -> DecideResponse:
         """Evaluate a composed rulebook against the supplied field values.
 
@@ -152,9 +167,23 @@ class Aethis:
         resp = self._request(
             "POST",
             DECIDE_PATH,
-            json=_decide_rulebook_payload(rulebook_id, field_values, include_trace),
+            json=_decide_rulebook_payload(
+                rulebook_id, field_values, include_trace, include_explanation
+            ),
         )
         return DecideResponse.model_validate(resp.json())
+
+    def list_rulesets(self, limit: int = 20, offset: int = 0) -> list[RulesetSummary]:
+        """List available rulesets from the public catalogue.
+
+        Anonymous callers see only public rulesets; passing ``api_key=...`` to
+        the client additionally surfaces that key's own rulesets. ``limit`` is
+        clamped by the engine to 1-50; ``offset`` paginates.
+        """
+        resp = self._request(
+            "GET", RULESETS_PATH, params={"limit": limit, "offset": offset}
+        )
+        return [RulesetSummary.model_validate(item) for item in resp.json()]
 
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
@@ -280,9 +309,18 @@ class AsyncAethis:
         ruleset_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
+        include_explanation: bool = False,
     ) -> DecideResponse:
-        """Evaluate a ruleset against the supplied field values."""
-        resp = await self._request("POST", DECIDE_PATH, json=_decide_payload(ruleset_id, field_values, include_trace))
+        """Evaluate a ruleset against the supplied field values.
+
+        Set ``include_explanation=True`` to populate ``DecideResponse.explanation``
+        with the layered, criterion-by-criterion breakdown of the decision.
+        """
+        resp = await self._request(
+            "POST",
+            DECIDE_PATH,
+            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation),
+        )
         return DecideResponse.model_validate(resp.json())
 
     async def decide_rulebook(
@@ -290,6 +328,7 @@ class AsyncAethis:
         rulebook_id: str,
         field_values: dict[str, Any],
         include_trace: bool = False,
+        include_explanation: bool = False,
     ) -> DecideResponse:
         """Evaluate a composed rulebook against the supplied field values.
 
@@ -299,9 +338,21 @@ class AsyncAethis:
         resp = await self._request(
             "POST",
             DECIDE_PATH,
-            json=_decide_rulebook_payload(rulebook_id, field_values, include_trace),
+            json=_decide_rulebook_payload(
+                rulebook_id, field_values, include_trace, include_explanation
+            ),
         )
         return DecideResponse.model_validate(resp.json())
+
+    async def list_rulesets(self, limit: int = 20, offset: int = 0) -> list[RulesetSummary]:
+        """List available rulesets from the public catalogue.
+
+        Async counterpart to :meth:`Aethis.list_rulesets`.
+        """
+        resp = await self._request(
+            "GET", RULESETS_PATH, params={"limit": limit, "offset": offset}
+        )
+        return [RulesetSummary.model_validate(item) for item in resp.json()]
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""

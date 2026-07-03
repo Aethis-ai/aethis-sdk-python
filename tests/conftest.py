@@ -63,6 +63,21 @@ def make_schema_response(**overrides: Any) -> dict[str, Any]:
     return base
 
 
+def make_ruleset_summary(**overrides: Any) -> dict[str, Any]:
+    """Build one valid item from the ``GET /rulesets`` catalogue response."""
+    base: dict[str, Any] = {
+        "ruleset_id": "construction-all-risks:20260517-a7234924",
+        "slug": "aethis/construction-all-risks",
+        "section_id": "construction-all-risks",
+        "name": "Construction All Risks",
+        "description": "Generated via agent authoring",
+        "field_count": 14,
+        "rule_count": 8,
+    }
+    base.update(overrides)
+    return base
+
+
 def sync_mock_transport(handler: Any) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 

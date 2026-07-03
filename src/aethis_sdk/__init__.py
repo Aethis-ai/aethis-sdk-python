@@ -12,6 +12,7 @@ from aethis_sdk.errors import (
 from aethis_sdk.models import (
     DecideResponse,
     Decision,
+    FieldNote,
     NextQuestion,
     RulesetListItem,
     RulesetSummary,
@@ -37,6 +38,7 @@ __all__ = [
     "AethisTimeout",
     "DecideResponse",
     "Decision",
+    "FieldNote",
     "NextQuestion",
     "RulesetListItem",
     "RulesetSummary",
