@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from aethis_sdk import (
     DecideResponse,
+    FieldNote,
     RulesetListItem,
     RulesetSummary,
     SchemaResponse,
@@ -58,6 +59,75 @@ class TestDecideResponseAuditFields:
             {"decision": "eligible", "ruleset_id": "test:v1"}
         )
         assert resp.ruleset_id == "test:v1"
+
+
+class TestNextQuestionNotes:
+    """``NextQuestion.notes`` carries the engine's structured ``FieldNoteOut``
+    guidance; it must round-trip and stay optional for responses without it.
+    """
+
+    def test_notes_parse_onto_next_question(self):
+        payload = {
+            "decision": "undetermined",
+            "next_question": {
+                "field_id": "life_uk.passed",
+                "question": "Have you passed the Life in the UK test?",
+                "weight": 3,
+                "notes": [
+                    {
+                        "note_text": "Required unless exempt on grounds of age or long residence.",
+                        "source": "Nationality: naturalisation (Home Office guidance)",
+                        "metadata": {"type": "why", "section": "life_uk"},
+                    }
+                ],
+            },
+        }
+        resp = DecideResponse.model_validate(payload)
+
+        assert resp.next_question is not None
+        assert len(resp.next_question.notes) == 1
+        note = resp.next_question.notes[0]
+        assert isinstance(note, FieldNote)
+        assert note.note_text.startswith("Required unless exempt")
+        assert note.source.startswith("Nationality")
+        assert note.metadata["type"] == "why"
+
+    def test_notes_default_empty_when_absent(self):
+        """Responses from engines/paths that omit notes keep parsing."""
+        resp = DecideResponse.model_validate(
+            {
+                "decision": "undetermined",
+                "next_question": {"field_id": "age", "question": "How old?", "weight": 1},
+            }
+        )
+        assert resp.next_question is not None
+        assert resp.next_question.notes == []
+
+    def test_field_note_source_and_metadata_default(self):
+        note = FieldNote.model_validate({"note_text": "Bare note."})
+        assert note.source == ""
+        assert note.metadata == {}
+
+
+class TestDecideResponseExplanation:
+    """``explanation`` is a single object (``dict``), not a list — matching the
+    engine's ``Optional[Dict[str, Any]]``."""
+
+    def test_explanation_object_round_trips(self):
+        explanation = {
+            "decision": "eligible",
+            "groups": [{"group": "age", "status": "satisfied", "criteria": []}],
+            "unused_facts": [],
+        }
+        resp = DecideResponse.model_validate(
+            {"decision": "eligible", "explanation": explanation}
+        )
+        assert resp.explanation == explanation
+        assert resp.explanation["decision"] == "eligible"
+
+    def test_explanation_optional(self):
+        resp = DecideResponse.model_validate({"decision": "undetermined"})
+        assert resp.explanation is None
 
 
 class TestRulesetNameField:

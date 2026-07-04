@@ -4,10 +4,24 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Decision = Literal["eligible", "not_eligible", "undetermined"]
 SectionStatus = Literal["satisfied", "not_satisfied", "pending"]
+
+
+class FieldNote(BaseModel):
+    """Structured guidance attached to a field being asked about.
+
+    Mirrors the engine's ``FieldNoteOut``: author-provided rationale and legal
+    background the navigator surfaces alongside a ``next_question`` so callers
+    can render it to end users. ``metadata`` is loosely typed because callers
+    attach domain-specific tags (``type``, ``section``, ``warning``, ...).
+    """
+
+    note_text: str
+    source: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class NextQuestion(BaseModel):
@@ -16,6 +30,7 @@ class NextQuestion(BaseModel):
     field_id: str
     question: str
     weight: int
+    notes: list[FieldNote] = Field(default_factory=list)
 
 
 class SectionResult(BaseModel):
@@ -50,7 +65,7 @@ class DecideResponse(BaseModel):
     optimal_path: list[NextQuestion] | None = None
     field_errors: dict[str, str] | None = None
     trace: dict[str, Any] | None = None
-    explanation: list[dict[str, Any]] | None = None
+    explanation: dict[str, Any] | None = None
     section_results: list[SectionResult] | None = None
 
 

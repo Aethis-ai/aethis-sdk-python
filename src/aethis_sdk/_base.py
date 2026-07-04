@@ -28,9 +28,9 @@ def build_headers(api_key: str | None, iam_token: str | None) -> dict[str, str]:
     """Construct default headers. ``iam_token`` is for Cloud Run service-to-service auth.
 
     During the developer beta, evaluation endpoints (``/decide``, ``/schema``,
-    ``/explain``, ``/next_question``) accept anonymous calls, so ``api_key`` is
-    optional. When omitted, no ``x-api-key`` header is sent and authoring
-    endpoints will return 401.
+    ``/explain``) accept anonymous calls, so ``api_key`` is optional. When
+    omitted, no ``x-api-key`` header is sent and authoring endpoints will
+    return 401.
     """
     headers: dict[str, str] = {}
     if api_key is not None:
@@ -48,14 +48,23 @@ def classify_response(resp: httpx.Response) -> None:
     if resp.status_code < 400:
         return
     if resp.status_code < 500:
+        body: object | None
+        detail: object | None
         try:
-            detail = resp.json().get("detail", "")
+            body = resp.json()
+            detail = body.get("detail") if isinstance(body, dict) else None
         except Exception:
-            detail = ""
+            body = None
+            detail = None
         logger.error("Aethis API %d on %s: %s", resp.status_code, resp.request.url.path, detail)
+        message = f"Aethis API returned {resp.status_code}"
+        if detail:
+            message = f"{message}: {detail}"
         raise AethisAPIError(
-            f"Aethis API returned {resp.status_code}",
+            message,
             status_code=resp.status_code,
+            detail=detail,
+            body=body,
         )
 
 

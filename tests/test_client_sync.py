@@ -12,10 +12,15 @@ from aethis_sdk import (
     AethisAPIError,
     AethisUnavailable,
     DecideResponse,
+    RulesetSummary,
     SchemaResponse,
 )
 
-from tests.conftest import make_decide_response, make_schema_response
+from tests.conftest import (
+    make_decide_response,
+    make_ruleset_summary,
+    make_schema_response,
+)
 
 
 class TestDecide:
@@ -124,6 +129,7 @@ class TestDecideRulebook:
                 "rulebook_id": "aethis/uk-fsm",
                 "field_values": {"child.age": 10},
                 "include_trace": False,
+                "include_explanation": False,
             }
             return httpx.Response(
                 200,
@@ -280,6 +286,152 @@ class TestExplainFailure:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.explain_failure("rs_abc123", {}, "invalid_outcome")
         assert exc_info.value.status_code == 422
+
+
+class TestErrorDetail:
+    """4xx responses attach the API's ``detail``/``body`` to the exception."""
+
+    def test_detail_appears_in_message_and_attribute(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(422, json={"detail": "Provide exactly one of ruleset_id or rulebook_id"})
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            with pytest.raises(AethisAPIError) as exc_info:
+                client.decide("ruleset:v1", {})
+
+        err = exc_info.value
+        assert err.status_code == 422
+        assert err.detail == "Provide exactly one of ruleset_id or rulebook_id"
+        assert err.body == {"detail": "Provide exactly one of ruleset_id or rulebook_id"}
+        assert "422" in str(err)
+        assert "Provide exactly one of ruleset_id or rulebook_id" in str(err)
+
+    def test_list_detail_is_preserved(self):
+        """FastAPI validation errors return ``detail`` as a list of objects."""
+        detail = [{"loc": ["body", "expected_outcome"], "msg": "value is not a valid enum member"}]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(422, json={"detail": detail})
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            with pytest.raises(AethisAPIError) as exc_info:
+                client.decide("ruleset:v1", {})
+
+        assert exc_info.value.detail == detail
+
+    def test_missing_detail_leaves_attributes_none(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, text="not json")
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            with pytest.raises(AethisAPIError) as exc_info:
+                client.decide("ruleset:v1", {})
+
+        err = exc_info.value
+        assert err.detail is None
+        assert err.body is None
+        assert str(err) == "Aethis API returned 400"
+
+
+class TestIncludeExplanation:
+    """``include_explanation`` is sent on the request and the dict-shaped
+    explanation round-trips back onto ``DecideResponse``."""
+
+    def test_include_explanation_sent_and_defaults_false(self):
+        seen: list[dict] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(json.loads(request.content))
+            return httpx.Response(200, json=make_decide_response())
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            client.decide("ruleset:v1", {})
+            client.decide("ruleset:v1", {}, include_explanation=True)
+            client.decide_rulebook("aethis/uk-fsm", {}, include_explanation=True)
+
+        assert seen[0]["include_explanation"] is False
+        assert seen[1]["include_explanation"] is True
+        assert seen[2]["include_explanation"] is True
+
+    def test_explanation_object_round_trips(self):
+        explanation = {
+            "decision": "eligible",
+            "groups": [
+                {
+                    "group": "age",
+                    "status": "satisfied",
+                    "criteria": [
+                        {"criterion_id": "c1", "title": "18 or over", "status": "satisfied"}
+                    ],
+                }
+            ],
+            "unused_facts": ["nickname"],
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json=make_decide_response(decision="eligible", explanation=explanation)
+            )
+
+        with Aethis(
+            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            resp = client.decide("ruleset:v1", {}, include_explanation=True)
+
+        assert resp.explanation == explanation
+        assert resp.explanation["groups"][0]["status"] == "satisfied"
+
+
+class TestListRulesets:
+    """``GET /api/v1/public/rulesets`` catalogue wrapper."""
+
+    def test_happy_path_returns_summaries(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v1/public/rulesets"
+            assert request.method == "GET"
+            assert request.url.params["limit"] == "20"
+            assert request.url.params["offset"] == "0"
+            return httpx.Response(
+                200,
+                json=[
+                    make_ruleset_summary(),
+                    make_ruleset_summary(
+                        ruleset_id="legacy:20260101-deadbeef",
+                        slug="aethis/legacy",
+                        section_id="legacy",
+                        name=None,
+                    ),
+                ],
+            )
+
+        with Aethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            rulesets = client.list_rulesets()
+
+        assert len(rulesets) == 2
+        assert isinstance(rulesets[0], RulesetSummary)
+        assert rulesets[0].slug == "aethis/construction-all-risks"
+        assert rulesets[1].name is None
+
+    def test_limit_and_offset_forwarded(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.params["limit"] == "5"
+            assert request.url.params["offset"] == "10"
+            return httpx.Response(200, json=[])
+
+        with Aethis(
+            base_url="http://test", transport=httpx.MockTransport(handler)
+        ) as client:
+            assert client.list_rulesets(limit=5, offset=10) == []
 
 
 class TestConfig:
