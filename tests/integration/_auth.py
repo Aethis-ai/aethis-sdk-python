@@ -4,7 +4,8 @@ The staging integration lane does not read a pre-minted key from a secret; it
 mints one through the same public path a developer does — Clerk sign-in ticket →
 frontend-API JWT → ``POST /api/v1/keys/`` — then tears it down. This is what
 makes scope-set drift between the mint surface and the engine visible (the
-day-one 403 that triggered workspace#477).
+class of day-one 403 that a user hits when the minted scope set and the engine
+disagree).
 
 Secrets are never logged. The JWT, sign-in ticket and full key are treated as
 opaque and never printed. Every network call is bounded by a timeout so a wedged
@@ -36,8 +37,8 @@ _STALE_AFTER = timedelta(hours=1)
 
 class MintUnavailable(RuntimeError):
     """The mint path could not be exercised (missing creds, unreachable Clerk /
-    engine, wedged exchange). Raised so the lane fails **loud**, never skips
-    (Decision 9)."""
+    engine, wedged exchange). Raised so a lane that cannot run reports **red**,
+    never skip-green."""
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,9 @@ class StagingConfig:
             if not val
         ]
         if missing:
-            raise MintUnavailable("staging lane requires " + ", ".join(missing) + " — refusing to skip (Decision 9)")
+            raise MintUnavailable(
+                "staging lane requires " + ", ".join(missing) + " — reporting red rather than skip-green"
+            )
         assert secret and user_id  # for type-checkers
         return cls(
             base_url=os.environ.get("AETHIS_STAGING_BASE_URL", "https://staging.api.aethis.ai").rstrip("/"),

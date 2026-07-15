@@ -3,8 +3,8 @@ name: staging-integration
 # Nightly report-only lane: mint a real key on staging the way a user does,
 # exercise every public SDK method + typed errors + fixture parity against the
 # deployed engine, and emit a qa_runs record. NOT a PR gate — it does not block
-# a merge. Decision 9 (workspace#477): missing secrets / unreachable staging /
-# a wedged mint report RED, never green-by-skip.
+# a merge. A lane that cannot run reports RED, never green-by-skip: missing
+# secrets / unreachable staging / a wedged mint all fail loud.
 
 on:
   schedule:
@@ -47,7 +47,7 @@ jobs:
           [ -n "$CLERK_SECRET_KEY_DEV_TOOLS" ] || { echo "::error::CLERK_SECRET_KEY_DEV_TOOLS is not set"; missing=1; }
           [ -n "$CLERK_E2E_DX_USER_ID" ] || { echo "::error::CLERK_E2E_DX_USER_ID is not set"; missing=1; }
           if [ "$missing" -ne 0 ]; then
-            echo "Refusing to skip a lane that cannot run (Decision 9)." >&2
+            echo "Refusing to skip a lane that cannot run (report red, not skip-green)." >&2
             exit 1
           fi
 
@@ -90,9 +90,9 @@ jobs:
           repo = os.environ.get("GITHUB_REPOSITORY", "Aethis-ai/aethis-sdk-python")
           record = {
               "schema_version": 1,
-              # NOTE: the dev-platform QARunSource taxonomy is added by
-              # workspace#477 P6, which wires the ingest. Until then this
-              # artifact is uploaded, not ingested.
+              # NOTE: downstream ingestion wiring (the dev-platform run-record
+              # taxonomy) lands separately. Until then this artifact is
+              # uploaded, not ingested.
               "source": "dev_platform",
               "lane": os.environ["LANE"],
               "natural_key": f"{os.environ['LANE']}:{run_id}",

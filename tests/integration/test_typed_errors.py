@@ -2,8 +2,8 @@
 
 The offline ``tests/test_errors.py`` proves the SDK *maps* the structured error
 envelopes to typed exceptions; this proves the deployed engine still *emits*
-those envelopes, and cross-checks the shape against the public-API contract
-(Decision 2). 429 is validated offline only — deliberately exhausting a quota on
+those envelopes, and cross-checks the shape against the public-API contract the
+diagnostics endpoint serves. 429 is validated offline only — deliberately exhausting a quota on
 every nightly run is neither cheap nor reliable — but its envelope schema is
 asserted present in the contract here so a contract change is caught.
 """
@@ -74,7 +74,7 @@ class TestContractEnvelopes:
     def test_contract_default_scopes_match_a_freshly_minted_key(
         self, contract_default_scopes: set[str], minted_key: MintedKey
     ) -> None:
-        # The drift check that workspace#477 exists to catch: the scopes a fresh
+        # The scope-drift class this suite exists to catch: the scopes a fresh
         # key is minted with must equal the contract's declared default set.
         assert set(minted_key.scopes) == contract_default_scopes
 

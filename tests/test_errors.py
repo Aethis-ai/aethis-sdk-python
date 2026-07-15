@@ -25,8 +25,8 @@ from tests.conftest import make_decide_response
 from tests.shapes import compare_shape
 
 # Error envelopes, byte-for-byte the shape the public API returns (verified live
-# on staging.api.aethis.ai, engine 0.43.0, and pinned by the aethis-core public
-# API contract, workspace#477 P1).
+# on staging.api.aethis.ai, engine 0.43.0, and pinned by the public-API contract
+# the diagnostics endpoint serves).
 ENVELOPE_401 = {
     "detail": {
         "error": "unauthorized",

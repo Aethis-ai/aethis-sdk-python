@@ -5,10 +5,9 @@ the default PR gate — which runs ``-m 'not staging'`` — never touches the
 network. The nightly workflow runs ``-m staging`` with the Clerk creds in the
 environment.
 
-Decision 9 (workspace#477): a lane that *cannot* run reports red, never
-green-by-skip. Missing creds, unreachable staging, or a wedged mint raise
-:class:`MintUnavailable` from the session fixture, which errors the staging
-tests loudly rather than skipping them.
+A lane that *cannot* run reports red, never green-by-skip. Missing creds,
+unreachable staging, or a wedged mint raise :class:`MintUnavailable` from the
+session fixture, which errors the staging tests loudly rather than skipping them.
 """
 
 from __future__ import annotations

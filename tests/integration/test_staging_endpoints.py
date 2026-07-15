@@ -1,6 +1,6 @@
 """Every public method on ``Aethis`` + ``AsyncAethis`` against deployed staging.
 
-The oracle is the deployed engine (Decision 1): each call hits
+The deployed engine is the oracle: each call hits
 ``staging.api.aethis.ai`` with a freshly-minted key and the response must parse
 into the SDK's typed model without error. Public showcase rulesets only.
 """
