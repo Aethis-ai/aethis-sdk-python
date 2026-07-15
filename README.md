@@ -139,6 +139,7 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
 | `DecideResponse`, `SchemaResponse`, `SchemaField`, `NextQuestion`, `FieldNote`, `SectionResult`, `RulesetSummary` | Pydantic response models |
 | `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy (`.detail` / `.body` carry the API's error payload) |
+| `AethisAuthError` (401), `AethisPermissionError` (403), `AethisRateLimitError` (429) | Typed `AethisAPIError` subclasses carrying `.reason_code`, `.missing_permissions`, `.hint` from the API's structured error envelope |
 
 ## Configuration
 

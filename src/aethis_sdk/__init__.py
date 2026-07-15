@@ -5,7 +5,10 @@ from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from aethis_sdk.client import Aethis, AsyncAethis
 from aethis_sdk.errors import (
     AethisAPIError,
+    AethisAuthError,
     AethisError,
+    AethisPermissionError,
+    AethisRateLimitError,
     AethisTimeout,
     AethisUnavailable,
 )
@@ -34,6 +37,9 @@ __all__ = [
     "AsyncAethis",
     "AethisError",
     "AethisAPIError",
+    "AethisAuthError",
+    "AethisPermissionError",
+    "AethisRateLimitError",
     "AethisUnavailable",
     "AethisTimeout",
     "DecideResponse",
