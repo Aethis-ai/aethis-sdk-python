@@ -9,7 +9,8 @@ returns — otherwise the suite passes against a shape that no longer exists.
 (key sets + value types, recursively) and returns a list of human-readable
 divergences. An empty list means the fixture is a faithful superset of reality.
 
-The comparison is deliberately asymmetric:
+The comparison is deliberately asymmetric, and intentionally shallow. Read this
+before relying on it — it checks *structure*, not *values*:
 
 - Every key the **live** payload returns must exist in the fixture. A key the
   engine sends but the fixture omits means the mock is stale (or a field was
@@ -18,13 +19,22 @@ The comparison is deliberately asymmetric:
   conditional (``explanation`` only when requested, ``next_question`` null on a
   final decision), so a fixture may legitimately carry a key a given live call
   didn't populate.
-- Types are compared only where both sides are non-null, so a conditional field
-  left null on either side never trips a false positive.
+- Only leaf **types** are compared (coarse JSON types via :func:`_type_name`),
+  never leaf **values** — a fixture with the wrong string content but the right
+  type is not flagged.
+- A ``None`` on **either** side short-circuits before recursion. So if the
+  *fixture* nulls a subtree the live response populates, the live subtree's
+  internal shape is **not** inspected (its nested keys/types are unchecked).
+- Lists compare only their **first** element (``[0]``); heterogeneous or
+  empty-vs-populated lists beyond index 0 are not compared.
 
-This asymmetry still catches a deliberate fixture edit: renaming ``decision`` to
-``verdict`` removes ``decision`` from the fixture, so the live ``decision`` key
-trips the "missing from fixture" rule; changing ``fields_evaluated`` from an int
-to a string trips the type rule.
+What this **does** catch (the drift that matters here): a live key the fixture
+lacks — including a renamed fixture key, because the rename removes the original
+from the fixture and the live original then trips the "missing from fixture"
+rule (e.g. ``decision`` → ``verdict``); and a leaf **type** change on a non-null
+field (e.g. ``fields_evaluated`` int → string). What it does **not** catch: a
+changed leaf value, or a structural change hidden underneath a subtree the
+fixture leaves ``None``.
 """
 
 from __future__ import annotations
@@ -83,7 +93,5 @@ def compare_shape(fixture: Any, live: Any, path: str = "$") -> list[str]:
 
     # Leaf: compare coarse types.
     if _type_name(fixture) != _type_name(live):
-        divergences.append(
-            f"{path}: fixture type {_type_name(fixture)} != live type {_type_name(live)}"
-        )
+        divergences.append(f"{path}: fixture type {_type_name(fixture)} != live type {_type_name(live)}")
     return divergences

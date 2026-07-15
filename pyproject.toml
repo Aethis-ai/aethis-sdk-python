@@ -51,8 +51,10 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 # The mocked suite is the PR gate; the `staging` lane hits deployed staging with
 # a real minted key and is excluded here (run explicitly with `-m staging`, or by
-# the nightly staging-integration workflow). Coverage floor mirrors aethis-cli.
-addopts = "-m 'not staging' --cov=aethis_sdk --cov-report=term-missing --cov-fail-under=45"
+# the nightly staging-integration workflow). The coverage flags live in the CI
+# command, not here, so an ordinary `pytest` / `uv run pytest` doesn't require
+# pytest-cov (which is only in the `dev` extra) to be installed.
+addopts = "-m 'not staging'"
 markers = [
     "staging: hits the deployed staging engine with a freshly-minted key (needs Clerk creds)",
 ]

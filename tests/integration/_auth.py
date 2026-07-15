@@ -23,7 +23,7 @@ Env inputs (all with sane defaults except the two credentials):
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -114,9 +114,10 @@ def _clerk_jwt(cfg: StagingConfig) -> str:
 
 @dataclass
 class MintedKey:
-    full_key: str
-    key_id: str
-    scopes: list[str]
+    # repr suppressed so a stray assert/log can never leak the secret into CI logs.
+    full_key: str = field(repr=False)
+    key_id: str = field(repr=True, default="")
+    scopes: list[str] = field(default_factory=list)
 
 
 class KeyMinter:
@@ -181,7 +182,9 @@ class KeyMinter:
             if not name.startswith(KEY_NAME_PREFIX) or item.get("revoked"):
                 continue
             created = _parse_ts(item.get("created_at"))
-            if created is None or created < cutoff:
+            # If the timestamp is missing/unparseable we cannot prove the key is
+            # stale — skip it rather than risk revoking a concurrent run's key.
+            if created is not None and created < cutoff:
                 self._delete(client, item.get("key_id", ""))
 
 
