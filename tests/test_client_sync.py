@@ -36,9 +36,7 @@ class TestDecide:
             assert body["field_values"] == {"age": 25}
             return httpx.Response(200, json=make_decide_response(decision="eligible"))
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.decide("test_ruleset:v1", {"age": 25})
 
         assert isinstance(resp, DecideResponse)
@@ -62,18 +60,14 @@ class TestDecide:
             assert "x-api-key" not in request.headers
             return httpx.Response(200, json=make_decide_response())
 
-        with Aethis(
-            base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.decide("ruleset:v1", {})
 
     def test_decide_works_without_api_key(self):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=make_decide_response(decision="eligible"))
 
-        with Aethis(
-            base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.decide("aethis/construction-all-risks", {})
 
         assert resp.decision == "eligible"
@@ -88,9 +82,7 @@ class TestDecide:
                 return httpx.Response(500)
             return httpx.Response(200, json=make_decide_response(decision="eligible"))
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.decide("ruleset:v1", {})
 
         assert resp.decision == "eligible"
@@ -100,9 +92,7 @@ class TestDecide:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(500)
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisUnavailable):
                 client.decide("ruleset:v1", {})
 
@@ -110,9 +100,7 @@ class TestDecide:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(404, json={"detail": "Ruleset not found"})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.decide("nonexistent:v1", {})
         assert exc_info.value.status_code == 404
@@ -130,6 +118,7 @@ class TestDecideRulebook:
                 "field_values": {"child.age": 10},
                 "include_trace": False,
                 "include_explanation": False,
+                "include_graph_overlay": False,
             }
             return httpx.Response(
                 200,
@@ -141,9 +130,7 @@ class TestDecideRulebook:
                 ),
             )
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.decide_rulebook("aethis/uk-fsm", {"child.age": 10})
 
         assert isinstance(resp, DecideResponse)
@@ -157,9 +144,7 @@ class TestDecideRulebook:
             assert body["include_trace"] is True
             return httpx.Response(200, json=make_decide_response(rulebook_id="rb_x"))
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.decide_rulebook("rb_x", {}, include_trace=True)
 
     def test_accepts_opaque_id_or_slug(self):
@@ -169,9 +154,7 @@ class TestDecideRulebook:
             seen_payloads.append(json.loads(request.content))
             return httpx.Response(200, json=make_decide_response())
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.decide_rulebook("rb_kzZ_td0tbKW_OLRB", {})
             client.decide_rulebook("aethis/uk-fsm", {})
 
@@ -185,9 +168,7 @@ class TestGetSchema:
             assert request.url.path == "/api/v1/public/rulesets/b:v1/schema"
             return httpx.Response(200, json=make_schema_response(ruleset_id="b:v1"))
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.get_schema("b:v1")
         assert isinstance(resp, SchemaResponse)
         assert resp.ruleset_id == "b:v1"
@@ -211,9 +192,7 @@ class TestExplainFailure:
             assert body["test_name"] == "test"
             return httpx.Response(200, json=expected_response)
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.explain_failure("rs_abc123", {"age": 15}, "eligible")
 
         assert resp == expected_response
@@ -224,9 +203,7 @@ class TestExplainFailure:
             assert body["test_name"] == "test"
             return httpx.Response(200, json={"failing_criterion": "x"})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.explain_failure("rs_abc123", {}, "not_eligible")
 
     def test_custom_test_name_is_forwarded(self):
@@ -235,9 +212,7 @@ class TestExplainFailure:
             assert body["test_name"] == "my_scenario"
             return httpx.Response(200, json={"failing_criterion": "x"})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.explain_failure("rs_abc123", {}, "eligible", test_name="my_scenario")
 
     def test_expected_outcome_eligible(self):
@@ -246,9 +221,7 @@ class TestExplainFailure:
             assert body["expected_outcome"] == "eligible"
             return httpx.Response(200, json={})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.explain_failure("rs_abc123", {}, "eligible")
 
     def test_expected_outcome_not_eligible(self):
@@ -257,9 +230,7 @@ class TestExplainFailure:
             assert body["expected_outcome"] == "not_eligible"
             return httpx.Response(200, json={})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.explain_failure("rs_abc123", {}, "not_eligible")
 
     def test_expected_outcome_undetermined(self):
@@ -268,9 +239,7 @@ class TestExplainFailure:
             assert body["expected_outcome"] == "undetermined"
             return httpx.Response(200, json={})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.explain_failure("rs_abc123", {}, "undetermined")
 
     def test_422_raises_api_error(self):
@@ -280,9 +249,7 @@ class TestExplainFailure:
                 json={"detail": [{"loc": ["body", "expected_outcome"], "msg": "value is not a valid enum member"}]},
             )
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.explain_failure("rs_abc123", {}, "invalid_outcome")
         assert exc_info.value.status_code == 422
@@ -295,9 +262,7 @@ class TestErrorDetail:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(422, json={"detail": "Provide exactly one of ruleset_id or rulebook_id"})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.decide("ruleset:v1", {})
 
@@ -315,9 +280,7 @@ class TestErrorDetail:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(422, json={"detail": detail})
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.decide("ruleset:v1", {})
 
@@ -327,9 +290,7 @@ class TestErrorDetail:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(400, text="not json")
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError) as exc_info:
                 client.decide("ruleset:v1", {})
 
@@ -350,9 +311,7 @@ class TestIncludeExplanation:
             seen.append(json.loads(request.content))
             return httpx.Response(200, json=make_decide_response())
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             client.decide("ruleset:v1", {})
             client.decide("ruleset:v1", {}, include_explanation=True)
             client.decide_rulebook("aethis/uk-fsm", {}, include_explanation=True)
@@ -368,22 +327,16 @@ class TestIncludeExplanation:
                 {
                     "group": "age",
                     "status": "satisfied",
-                    "criteria": [
-                        {"criterion_id": "c1", "title": "18 or over", "status": "satisfied"}
-                    ],
+                    "criteria": [{"criterion_id": "c1", "title": "18 or over", "status": "satisfied"}],
                 }
             ],
             "unused_facts": ["nickname"],
         }
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, json=make_decide_response(decision="eligible", explanation=explanation)
-            )
+            return httpx.Response(200, json=make_decide_response(decision="eligible", explanation=explanation))
 
-        with Aethis(
-            api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             resp = client.decide("ruleset:v1", {}, include_explanation=True)
 
         assert resp.explanation == explanation
@@ -412,9 +365,7 @@ class TestListRulesets:
                 ],
             )
 
-        with Aethis(
-            base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             rulesets = client.list_rulesets()
 
         assert len(rulesets) == 2
@@ -428,9 +379,7 @@ class TestListRulesets:
             assert request.url.params["offset"] == "10"
             return httpx.Response(200, json=[])
 
-        with Aethis(
-            base_url="http://test", transport=httpx.MockTransport(handler)
-        ) as client:
+        with Aethis(base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             assert client.list_rulesets(limit=5, offset=10) == []
 
 

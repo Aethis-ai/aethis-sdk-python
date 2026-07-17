@@ -19,7 +19,13 @@ from aethis_sdk._base import (
     validate_base_url,
 )
 from aethis_sdk.errors import AethisError, AethisTimeout
-from aethis_sdk.models import DecideResponse, RulesetSummary, SchemaResponse
+from aethis_sdk.models import (
+    DecideResponse,
+    GraphResponse,
+    RulebookSchemaResponse,
+    RulesetSummary,
+    SchemaResponse,
+)
 
 DECIDE_PATH = "/api/v1/public/decide"
 WHOAMI_PATH = "/api/v1/public/me"
@@ -28,6 +34,14 @@ RULESETS_PATH = "/api/v1/public/rulesets"
 
 def _schema_path(ruleset_id: str) -> str:
     return f"/api/v1/public/rulesets/{ruleset_id}/schema"
+
+
+def _graph_path(ruleset_id: str) -> str:
+    return f"/api/v1/public/rulesets/{ruleset_id}/graph"
+
+
+def _rulebook_schema_path(rulebook_id: str) -> str:
+    return f"/api/v1/public/rulebooks/{rulebook_id}/schema"
 
 
 def _explain_path(ruleset_id: str) -> str:
@@ -47,12 +61,14 @@ def _decide_payload(
     field_values: dict[str, Any],
     include_trace: bool,
     include_explanation: bool,
+    include_graph_overlay: bool = False,
 ) -> dict[str, Any]:
     return {
         "ruleset_id": ruleset_id,
         "field_values": field_values,
         "include_trace": include_trace,
         "include_explanation": include_explanation,
+        "include_graph_overlay": include_graph_overlay,
     }
 
 
@@ -61,12 +77,14 @@ def _decide_rulebook_payload(
     field_values: dict[str, Any],
     include_trace: bool,
     include_explanation: bool,
+    include_graph_overlay: bool = False,
 ) -> dict[str, Any]:
     return {
         "rulebook_id": rulebook_id,
         "field_values": field_values,
         "include_trace": include_trace,
         "include_explanation": include_explanation,
+        "include_graph_overlay": include_graph_overlay,
     }
 
 
@@ -112,9 +130,7 @@ class Aethis:
         self._client: httpx.Client | None = None
 
     def __enter__(self) -> "Aethis":
-        self._client = httpx.Client(
-            **build_httpx_kwargs(self._base_url, self._headers, self._timeout, self._transport)
-        )
+        self._client = httpx.Client(**build_httpx_kwargs(self._base_url, self._headers, self._timeout, self._transport))
         return self
 
     def __exit__(self, *exc: Any) -> None:
@@ -133,16 +149,22 @@ class Aethis:
         field_values: dict[str, Any],
         include_trace: bool = False,
         include_explanation: bool = False,
+        include_graph_overlay: bool = False,
     ) -> DecideResponse:
         """Evaluate a ruleset against the supplied field values.
 
         Set ``include_explanation=True`` to populate ``DecideResponse.explanation``
         with the layered, criterion-by-criterion breakdown of the decision.
+
+        Set ``include_graph_overlay=True`` to populate ``DecideResponse.graph_overlay``
+        with this decision's status stamped onto the ruleset's dependency graph
+        (same node/edge shape as :meth:`get_graph`) — useful for rendering "which
+        criteria passed" directly on the ruleset map.
         """
         resp = self._request(
             "POST",
             DECIDE_PATH,
-            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation),
+            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation, include_graph_overlay),
         )
         return DecideResponse.model_validate(resp.json())
 
@@ -152,6 +174,7 @@ class Aethis:
         field_values: dict[str, Any],
         include_trace: bool = False,
         include_explanation: bool = False,
+        include_graph_overlay: bool = False,
     ) -> DecideResponse:
         """Evaluate a composed rulebook against the supplied field values.
 
@@ -163,12 +186,15 @@ class Aethis:
         Unlike :meth:`decide`, rulebook evaluation is always scope-gated —
         anonymous callers get an HTTP 401. Supply ``api_key=...`` when
         constructing the client.
+
+        Set ``include_graph_overlay=True`` to populate ``DecideResponse.graph_overlay``
+        — see :meth:`decide`.
         """
         resp = self._request(
             "POST",
             DECIDE_PATH,
             json=_decide_rulebook_payload(
-                rulebook_id, field_values, include_trace, include_explanation
+                rulebook_id, field_values, include_trace, include_explanation, include_graph_overlay
             ),
         )
         return DecideResponse.model_validate(resp.json())
@@ -180,15 +206,32 @@ class Aethis:
         the client additionally surfaces that key's own rulesets. ``limit`` is
         clamped by the engine to 1-50; ``offset`` paginates.
         """
-        resp = self._request(
-            "GET", RULESETS_PATH, params={"limit": limit, "offset": offset}
-        )
+        resp = self._request("GET", RULESETS_PATH, params={"limit": limit, "offset": offset})
         return [RulesetSummary.model_validate(item) for item in resp.json()]
 
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
         resp = self._request("GET", _schema_path(ruleset_id))
         return SchemaResponse.model_validate(resp.json())
+
+    def get_graph(self, ruleset_id: str) -> GraphResponse:
+        """Return the field -> criterion -> group -> outcome dependency graph for a
+        ruleset, plus a rendered Mermaid diagram. Public rulesets can be inspected
+        without an API key, same as :meth:`get_schema`.
+        """
+        resp = self._request("GET", _graph_path(ruleset_id))
+        return GraphResponse.model_validate(resp.json())
+
+    def get_rulebook_schema(self, rulebook_id: str) -> RulebookSchemaResponse:
+        """Return the combined field schema for a rulebook's composed rulesets,
+        plus its conversational-agent ``robot_hints`` and ``engine_version``.
+
+        Unlike :meth:`get_schema`, rulebook schema is always scope-gated —
+        anonymous callers get an HTTP 401. Supply ``api_key=...`` when
+        constructing the client.
+        """
+        resp = self._request("GET", _rulebook_schema_path(rulebook_id))
+        return RulebookSchemaResponse.model_validate(resp.json())
 
     def whoami(self) -> dict[str, Any]:
         """Return metadata about the current API key."""
@@ -253,7 +296,10 @@ class Aethis:
             last_status = resp.status_code
             logger.warning(
                 "Aethis API %d on %s (attempt %d/%d)",
-                resp.status_code, path, attempt + 1, MAX_RETRIES + 1,
+                resp.status_code,
+                path,
+                attempt + 1,
+                MAX_RETRIES + 1,
             )
 
         raise unavailable_after_retries(last_status or 500, MAX_RETRIES + 1)
@@ -310,16 +356,20 @@ class AsyncAethis:
         field_values: dict[str, Any],
         include_trace: bool = False,
         include_explanation: bool = False,
+        include_graph_overlay: bool = False,
     ) -> DecideResponse:
         """Evaluate a ruleset against the supplied field values.
 
         Set ``include_explanation=True`` to populate ``DecideResponse.explanation``
         with the layered, criterion-by-criterion breakdown of the decision.
+
+        Set ``include_graph_overlay=True`` to populate ``DecideResponse.graph_overlay``
+        — see :meth:`Aethis.decide`.
         """
         resp = await self._request(
             "POST",
             DECIDE_PATH,
-            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation),
+            json=_decide_payload(ruleset_id, field_values, include_trace, include_explanation, include_graph_overlay),
         )
         return DecideResponse.model_validate(resp.json())
 
@@ -329,17 +379,21 @@ class AsyncAethis:
         field_values: dict[str, Any],
         include_trace: bool = False,
         include_explanation: bool = False,
+        include_graph_overlay: bool = False,
     ) -> DecideResponse:
         """Evaluate a composed rulebook against the supplied field values.
 
         Async counterpart to :meth:`Aethis.decide_rulebook`. Rulebook
         evaluation requires an API key — anonymous callers get HTTP 401.
+
+        Set ``include_graph_overlay=True`` to populate ``DecideResponse.graph_overlay``
+        — see :meth:`Aethis.decide`.
         """
         resp = await self._request(
             "POST",
             DECIDE_PATH,
             json=_decide_rulebook_payload(
-                rulebook_id, field_values, include_trace, include_explanation
+                rulebook_id, field_values, include_trace, include_explanation, include_graph_overlay
             ),
         )
         return DecideResponse.model_validate(resp.json())
@@ -349,15 +403,29 @@ class AsyncAethis:
 
         Async counterpart to :meth:`Aethis.list_rulesets`.
         """
-        resp = await self._request(
-            "GET", RULESETS_PATH, params={"limit": limit, "offset": offset}
-        )
+        resp = await self._request("GET", RULESETS_PATH, params={"limit": limit, "offset": offset})
         return [RulesetSummary.model_validate(item) for item in resp.json()]
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
         resp = await self._request("GET", _schema_path(ruleset_id))
         return SchemaResponse.model_validate(resp.json())
+
+    async def get_graph(self, ruleset_id: str) -> GraphResponse:
+        """Return the field -> criterion -> group -> outcome dependency graph for a
+        ruleset, plus a rendered Mermaid diagram. Async counterpart to
+        :meth:`Aethis.get_graph`.
+        """
+        resp = await self._request("GET", _graph_path(ruleset_id))
+        return GraphResponse.model_validate(resp.json())
+
+    async def get_rulebook_schema(self, rulebook_id: str) -> RulebookSchemaResponse:
+        """Return the combined field schema for a rulebook's composed rulesets,
+        plus its conversational-agent ``robot_hints`` and ``engine_version``.
+        Async counterpart to :meth:`Aethis.get_rulebook_schema`.
+        """
+        resp = await self._request("GET", _rulebook_schema_path(rulebook_id))
+        return RulebookSchemaResponse.model_validate(resp.json())
 
     async def whoami(self) -> dict[str, Any]:
         """Return metadata about the current API key."""
@@ -423,7 +491,10 @@ class AsyncAethis:
             last_status = resp.status_code
             logger.warning(
                 "Aethis API %d on %s (attempt %d/%d)",
-                resp.status_code, path, attempt + 1, MAX_RETRIES + 1,
+                resp.status_code,
+                path,
+                attempt + 1,
+                MAX_RETRIES + 1,
             )
 
         raise unavailable_after_retries(last_status or 500, MAX_RETRIES + 1)
