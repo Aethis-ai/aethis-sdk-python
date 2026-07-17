@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 import httpx
 import pytest
@@ -72,6 +73,38 @@ def engine_version(base_url: str) -> str:
         return str(resp.json()["info"]["version"])
     except Exception:  # pragma: no cover - reported as 'unknown' in the artifact
         return "unknown"
+
+
+@dataclass(frozen=True)
+class RulebookFixture:
+    rulebook_id: str
+    api_key: str
+    robot_hints: dict[str, str]
+
+
+@pytest.fixture(scope="session")
+def rulebook_with_robot_hints(minted_key: MintedKey, base_url: str) -> Iterator[RulebookFixture]:
+    """A throwaway, empty rulebook (no ruleset_refs) authored with
+    ``robot_hints`` — created via a raw ``POST /rulebooks/`` the way the SDK's
+    ``get_rulebook_schema`` client method would then read it back, archived on
+    teardown. aethis-sdk-python has no rulebook-authoring surface (out of
+    scope for #18 — models + read-only ``get_rulebook_schema`` only), so
+    fixture creation goes straight through httpx.
+    """
+    hints = {"general_context": "This is a smoke-test rulebook for SDK model round-trip testing."}
+    headers = {"X-API-Key": minted_key.full_key}
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.post(
+            f"{base_url}/api/v1/public/rulebooks/",
+            headers=headers,
+            json={"name": "sdk-integration-graph-robot-hints", "domain": "sdk-smoke-test", "robot_hints": hints},
+        )
+        resp.raise_for_status()
+        rulebook_id = resp.json()["rulebook_id"]
+        try:
+            yield RulebookFixture(rulebook_id=rulebook_id, api_key=minted_key.full_key, robot_hints=hints)
+        finally:
+            client.post(f"{base_url}/api/v1/public/rulebooks/{rulebook_id}/archive", headers=headers)
 
 
 def load_contract(base_url: str) -> dict:

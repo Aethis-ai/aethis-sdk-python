@@ -132,12 +132,14 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 
 | Import | Purpose |
 |---|---|
-| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/rulesets`, `/rulesets/{id}/schema`, `/me`, `/rulesets/{id}/explain`, `/rulesets/{id}/source` |
-| `decide`, `decide_rulebook` | Single-ruleset and composed-rulebook decisions; both take `include_trace` and `include_explanation` |
+| `Aethis`, `AsyncAethis` | HTTP clients for `/decide`, `/rulesets`, `/rulesets/{id}/schema`, `/rulesets/{id}/graph`, `/rulebooks/{id}/schema`, `/me`, `/rulesets/{id}/explain`, `/rulesets/{id}/source` |
+| `decide`, `decide_rulebook` | Single-ruleset and composed-rulebook decisions; both take `include_trace`, `include_explanation`, and `include_graph_overlay` |
+| `get_graph` | Fetch a ruleset's field → criterion → group → outcome dependency graph, plus a rendered Mermaid diagram (`GraphResponse`) |
+| `get_rulebook_schema` | Fetch a rulebook's combined field schema, plus its `robot_hints` (conversational-agent guidance) and `engine_version` (`RulebookSchemaResponse`) |
 | `explain_failure` | Diagnose a mismatched `/decide` — returns the failing criterion and a fix hint |
 | `list_rulesets` | Page the public ruleset catalogue (`RulesetSummary` items) |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
-| `DecideResponse`, `SchemaResponse`, `SchemaField`, `NextQuestion`, `FieldNote`, `SectionResult`, `RulesetSummary` | Pydantic response models |
+| `DecideResponse`, `SchemaResponse`, `RulebookSchemaResponse`, `SchemaField`, `GraphResponse`, `RulesetGraph`, `NextQuestion`, `FieldNote`, `SectionResult`, `RulesetSummary` | Pydantic response models |
 | `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy (`.detail` / `.body` carry the API's error payload) |
 | `AethisAuthError` (401), `AethisPermissionError` (403), `AethisRateLimitError` (429) | Typed `AethisAPIError` subclasses carrying `.reason_code`, `.missing_permissions`, `.hint` from the API's structured error envelope |
 

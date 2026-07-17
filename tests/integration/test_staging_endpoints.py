@@ -15,13 +15,15 @@ from aethis_sdk import (
     AsyncAethis,
     DecideResponse,
     DecisionSession,
+    GraphResponse,
+    RulebookSchemaResponse,
     RulesetSummary,
     SchemaResponse,
     SyncDecisionSession,
 )
 from aethis_sdk.errors import AethisAPIError
 from tests.integration._auth import MintedKey
-from tests.integration.conftest import SHOWCASE_RULESET_ID, SHOWCASE_SLUG
+from tests.integration.conftest import SHOWCASE_RULESET_ID, SHOWCASE_SLUG, RulebookFixture
 
 pytestmark = pytest.mark.staging
 
@@ -52,6 +54,32 @@ class TestSyncClientAgainstStaging:
             schema = client.get_schema(SHOWCASE_RULESET_ID)
         assert isinstance(schema, SchemaResponse)
         assert schema.fields
+
+    def test_get_graph(self, minted_key: MintedKey, base_url: str) -> None:
+        """Aethis-ai/aethis-sdk-python#18 — the ruleset dependency graph
+        round-trips into ``GraphResponse``. ``/graph`` is public/no-auth, same
+        as ``/schema``, but we drive it with the minted key for consistency
+        with the rest of this lane."""
+        with Aethis(api_key=minted_key.full_key, base_url=base_url) as client:
+            graph = client.get_graph(SHOWCASE_RULESET_ID)
+        assert isinstance(graph, GraphResponse)
+        assert graph.ruleset_id == SHOWCASE_RULESET_ID
+        assert graph.rulebook_id is None
+        assert graph.graph is not None and graph.graph.nodes
+        assert {n.get("type") for n in graph.graph.nodes} >= {"field", "criterion"}
+        assert graph.mermaid and graph.mermaid.startswith("graph")
+
+    def test_get_rulebook_schema_with_robot_hints(
+        self, rulebook_with_robot_hints: RulebookFixture, base_url: str
+    ) -> None:
+        """Aethis-ai/aethis-sdk-python#18 — ``robot_hints`` + ``engine_version``
+        round-trip through ``RulebookSchemaResponse`` from a real rulebook."""
+        with Aethis(api_key=rulebook_with_robot_hints.api_key, base_url=base_url) as client:
+            schema = client.get_rulebook_schema(rulebook_with_robot_hints.rulebook_id)
+        assert isinstance(schema, RulebookSchemaResponse)
+        assert schema.rulebook_id == rulebook_with_robot_hints.rulebook_id
+        assert schema.robot_hints == rulebook_with_robot_hints.robot_hints
+        assert schema.engine_version and schema.engine_version.startswith("aethis-core@")
 
     def test_whoami(self, minted_key: MintedKey, base_url: str) -> None:
         with Aethis(api_key=minted_key.full_key, base_url=base_url) as client:
@@ -117,6 +145,22 @@ class TestAsyncClientAgainstStaging:
         async with AsyncAethis(api_key=minted_key.full_key, base_url=base_url) as client:
             schema = await client.get_schema(SHOWCASE_RULESET_ID)
         assert isinstance(schema, SchemaResponse)
+
+    async def test_get_graph(self, minted_key: MintedKey, base_url: str) -> None:
+        async with AsyncAethis(api_key=minted_key.full_key, base_url=base_url) as client:
+            graph = await client.get_graph(SHOWCASE_RULESET_ID)
+        assert isinstance(graph, GraphResponse)
+        assert graph.ruleset_id == SHOWCASE_RULESET_ID
+        assert graph.graph is not None and graph.graph.nodes
+
+    async def test_get_rulebook_schema_with_robot_hints(
+        self, rulebook_with_robot_hints: RulebookFixture, base_url: str
+    ) -> None:
+        async with AsyncAethis(api_key=rulebook_with_robot_hints.api_key, base_url=base_url) as client:
+            schema = await client.get_rulebook_schema(rulebook_with_robot_hints.rulebook_id)
+        assert isinstance(schema, RulebookSchemaResponse)
+        assert schema.robot_hints == rulebook_with_robot_hints.robot_hints
+        assert schema.engine_version and schema.engine_version.startswith("aethis-core@")
 
     async def test_whoami(self, minted_key: MintedKey, base_url: str) -> None:
         async with AsyncAethis(api_key=minted_key.full_key, base_url=base_url) as client:

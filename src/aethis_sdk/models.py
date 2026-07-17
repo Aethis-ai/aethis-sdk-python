@@ -67,6 +67,7 @@ class DecideResponse(BaseModel):
     trace: dict[str, Any] | None = None
     explanation: dict[str, Any] | None = None
     section_results: list[SectionResult] | None = None
+    graph_overlay: dict[str, Any] | None = None
 
 
 class SchemaField(BaseModel):
@@ -86,6 +87,65 @@ class SchemaResponse(BaseModel):
     slug: str | None = None
     name: str | None = None
     fields: list[SchemaField]
+    engine_version: str | None = None
+
+
+class RulebookSchemaResponse(BaseModel):
+    """Response body from ``GET /api/v1/public/rulebooks/{id}/schema``.
+
+    The rulebook analogue of :class:`SchemaResponse`: the combined field
+    schema across every ruleset the rulebook composes, plus two fields the
+    single-ruleset schema doesn't carry: ``robot_hints`` (natural-language
+    conversational-agent guidance authored on the rulebook, keyed by beat —
+    ``general_context``, ``preamble``, ``session_start``, ``postamble``,
+    ``session_end``, ``stuck``) and ``engine_version`` (the engine build that
+    resolved the schema). Both are ``None`` for a rulebook authored before
+    these fields existed — additive and back-compat.
+    """
+
+    rulebook_id: str
+    sections: list[str] = Field(default_factory=list)
+    fields: list[SchemaField] = Field(default_factory=list)
+    robot_hints: dict[str, str] | None = None
+    engine_version: str | None = None
+
+
+class RulesetGraph(BaseModel):
+    """The JSON graph IR returned inside a graph response: nodes/edges plus
+    summary stats.
+
+    Node shape varies by ``type`` (``field`` / ``criterion`` / ``group`` /
+    ``outcome`` — each carries different keys, e.g. only ``criterion`` nodes
+    carry ``display``), so nodes and edges are kept as loosely-typed dicts
+    rather than a rigid per-type model. This is deliberate: it lets a legacy
+    or empty graph (``nodes: []``) parse cleanly instead of failing closed the
+    moment the engine adds a new node type or field.
+    """
+
+    nodes: list[dict[str, Any]] = Field(default_factory=list)
+    edges: list[dict[str, Any]] = Field(default_factory=list)
+    sections: list[str] = Field(default_factory=list)
+    stats: dict[str, Any] | None = None
+
+
+class GraphResponse(BaseModel):
+    """Response body from ``GET /api/v1/public/rulesets/{id}/graph`` or
+    ``GET /api/v1/public/rulebooks/{id}/graph``.
+
+    The field -> criterion -> group -> outcome dependency graph, plus a
+    rendered Mermaid diagram. Carries either ``ruleset_id`` (single-ruleset
+    graph) or ``rulebook_id`` (rulebook-composed graph) — mirrors the same
+    split on :class:`DecideResponse`. ``graph``/``mermaid`` are each optional
+    because the engine's ``?format=`` query param can return graph-only or
+    mermaid-only.
+    """
+
+    ruleset_id: str | None = None
+    rulebook_id: str | None = None
+    slug: str | None = None
+    name: str | None = None
+    graph: RulesetGraph | None = None
+    mermaid: str | None = None
 
 
 class RulesetSummary(BaseModel):

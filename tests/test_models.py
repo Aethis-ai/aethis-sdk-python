@@ -5,6 +5,9 @@ from __future__ import annotations
 from aethis_sdk import (
     DecideResponse,
     FieldNote,
+    GraphResponse,
+    RulebookSchemaResponse,
+    RulesetGraph,
     RulesetListItem,
     RulesetSummary,
     SchemaResponse,
@@ -55,9 +58,7 @@ class TestDecideResponseAuditFields:
         """Regression: prior to 0.3.2, ``ruleset_id`` was declared twice on
         ``DecideResponse``; Pydantic silently overrode the first with the
         second. After the dedupe, a single declaration accepts the value."""
-        resp = DecideResponse.model_validate(
-            {"decision": "eligible", "ruleset_id": "test:v1"}
-        )
+        resp = DecideResponse.model_validate({"decision": "eligible", "ruleset_id": "test:v1"})
         assert resp.ruleset_id == "test:v1"
 
 
@@ -119,9 +120,7 @@ class TestDecideResponseExplanation:
             "groups": [{"group": "age", "status": "satisfied", "criteria": []}],
             "unused_facts": [],
         }
-        resp = DecideResponse.model_validate(
-            {"decision": "eligible", "explanation": explanation}
-        )
+        resp = DecideResponse.model_validate({"decision": "eligible", "explanation": explanation})
         assert resp.explanation == explanation
         assert resp.explanation["decision"] == "eligible"
 
@@ -201,3 +200,258 @@ class TestRulesetNameField:
         resp = SchemaResponse.model_validate(payload)
         assert resp.name == "Construction All Risks"
         assert resp.fields[0].field_id == "site_address"
+
+
+class TestSchemaResponseEngineVersion:
+    """``engine_version`` added to the ruleset schema response — additive,
+    default ``None`` for the live route (which doesn't send it today)."""
+
+    def test_engine_version_optional_for_back_compat(self):
+        payload = {
+            "ruleset_id": "construction-all-risks:20260412-gold",
+            "slug": None,
+            "name": "CAR_DEFECT_EXCLUSION",
+            "fields": [],
+        }
+        resp = SchemaResponse.model_validate(payload)
+        assert resp.engine_version is None
+
+    def test_engine_version_round_trips_when_present(self):
+        payload = {
+            "ruleset_id": "x:v1",
+            "fields": [],
+            "engine_version": "aethis-core@0.45.2",
+        }
+        resp = SchemaResponse.model_validate(payload)
+        assert resp.engine_version == "aethis-core@0.45.2"
+
+
+class TestRulebookSchemaResponse:
+    """``RulebookSchemaResponse`` — ``robot_hints`` + ``engine_version`` on the
+    rulebook ``/schema`` route.
+
+    The "with robot hints" payload below is a live response captured
+    directly from ``staging.api.aethis.ai`` (aethis-core@0.45.2) for a
+    throwaway rulebook created and archived during this issue's
+    verification, ``GET /api/v1/public/rulebooks/{id}/schema``:
+
+        {"rulebook_id": "rb_SxYaJv5uSvb5qHzW", "sections": [], "fields": [],
+         "robot_hints": {"general_context": "..."},
+         "engine_version": "aethis-core@0.45.2"}
+    """
+
+    def test_round_trips_robot_hints_and_engine_version(self):
+        payload = {
+            "rulebook_id": "rb_SxYaJv5uSvb5qHzW",
+            "sections": [],
+            "fields": [],
+            "robot_hints": {"general_context": "This is a smoke-test rulebook for SDK model round-trip testing."},
+            "engine_version": "aethis-core@0.45.2",
+        }
+        resp = RulebookSchemaResponse.model_validate(payload)
+        assert resp.rulebook_id == "rb_SxYaJv5uSvb5qHzW"
+        assert resp.robot_hints == {
+            "general_context": "This is a smoke-test rulebook for SDK model round-trip testing."
+        }
+        assert resp.engine_version == "aethis-core@0.45.2"
+
+    def test_legacy_rulebook_schema_without_robot_hints_still_parses(self):
+        """A rulebook authored before robot_hints/engine_version existed
+        returns null for both — the schema route must not fail closed."""
+        payload = {
+            "rulebook_id": "rb_legacy",
+            "sections": ["life_uk"],
+            "fields": [
+                {"field_id": "life_uk.passed", "field_type": "boolean"},
+            ],
+        }
+        resp = RulebookSchemaResponse.model_validate(payload)
+        assert resp.robot_hints is None
+        assert resp.engine_version is None
+        assert resp.fields[0].field_id == "life_uk.passed"
+
+    def test_fields_and_sections_default_empty(self):
+        resp = RulebookSchemaResponse.model_validate({"rulebook_id": "rb_x"})
+        assert resp.sections == []
+        assert resp.fields == []
+
+
+class TestGraphResponse:
+    """``GraphResponse`` / ``RulesetGraph`` for the new ``/graph`` endpoint.
+
+    The payload below is a **trimmed, structurally-faithful excerpt** of a
+    live response captured from
+    ``GET https://api.aethis.ai/api/v1/public/rulesets/construction-all-risks:20260412-gold/graph``
+    (aethis-core@0.45.2, public/no-auth) — one representative node of each
+    ``type`` (``field`` / ``criterion`` / ``group`` / ``outcome``), the first
+    two real edges, and the real ``stats`` block. The full live response has
+    37 nodes; trimmed here for test readability without altering any shape.
+    """
+
+    def test_round_trips_live_ruleset_graph_shape(self):
+        payload = {
+            "ruleset_id": "construction-all-risks:20260412-gold",
+            "slug": None,
+            "name": "CAR_DEFECT_EXCLUSION",
+            "graph": {
+                "nodes": [
+                    {
+                        "id": "field:car.policy.period_valid",
+                        "type": "field",
+                        "label": "car.policy.period_valid",
+                        "sort": "Bool",
+                        "description": "Did the loss occur within the policy period?",
+                        "enum_values": None,
+                        "sections": ["construction-all-risks:20260412-gold"],
+                        "shared": False,
+                    },
+                    {
+                        "id": "criterion:period_valid",
+                        "type": "criterion",
+                        "label": "Policy period check (Cl.3)",
+                        "title": "Policy period check (Cl.3)",
+                        "section_id": "construction-all-risks:20260412-gold",
+                        "group": "policy_period",
+                        "fields": ["car.policy.period_valid"],
+                        "display": {
+                            "sentence": "car.policy.period_valid equals true",
+                            "routes": {
+                                "id": "r",
+                                "kind": "leaf",
+                                "label": "car.policy.period_valid equals true",
+                                "expr": {
+                                    "type": "op",
+                                    "operator": "=",
+                                    "args": [
+                                        {"type": "field_ref", "key": "car.policy.period_valid"},
+                                        {"type": "const", "sort": "Bool", "value": True, "field_context": None},
+                                    ],
+                                },
+                                "overlay": None,
+                            },
+                            "expr": {
+                                "type": "op",
+                                "operator": "=",
+                                "args": [
+                                    {"type": "field_ref", "key": "car.policy.period_valid"},
+                                    {"type": "const", "sort": "Bool", "value": True, "field_context": None},
+                                ],
+                            },
+                        },
+                        "overlay": None,
+                    },
+                    {
+                        "id": "group:construction-all-risks:20260412-gold.policy_period",
+                        "type": "group",
+                        "label": "policy_period",
+                        "section_id": "construction-all-risks:20260412-gold",
+                        "scoped_name": "construction-all-risks:20260412-gold.policy_period",
+                        "criteria": ["period_valid"],
+                        "semantics": "single",
+                    },
+                    {
+                        "id": "outcome",
+                        "type": "outcome",
+                        "label": "Eligibility Outcome",
+                        "has_custom_logic": False,
+                    },
+                ],
+                "edges": [
+                    {
+                        "source": "field:car.policy.period_valid",
+                        "target": "criterion:period_valid",
+                        "type": "field_to_criterion",
+                        "section_id": "construction-all-risks:20260412-gold",
+                    },
+                    {
+                        "source": "criterion:period_valid",
+                        "target": "group:construction-all-risks:20260412-gold.policy_period",
+                        "type": "criterion_to_group",
+                        "section_id": "construction-all-risks:20260412-gold",
+                    },
+                ],
+                "sections": ["construction-all-risks:20260412-gold"],
+                "stats": {
+                    "total_fields": 11,
+                    "shared_fields": 0,
+                    "total_criteria": 13,
+                    "total_groups": 12,
+                    "sections": 1,
+                },
+            },
+            "mermaid": "graph TD\n  subgraph construction-all-risks:20260412-gold[...]",
+        }
+
+        resp = GraphResponse.model_validate(payload)
+        assert isinstance(resp, GraphResponse)
+        assert resp.ruleset_id == "construction-all-risks:20260412-gold"
+        assert resp.rulebook_id is None
+        assert isinstance(resp.graph, RulesetGraph)
+        assert len(resp.graph.nodes) == 4
+        node_types = {n["type"] for n in resp.graph.nodes}
+        assert node_types == {"field", "criterion", "group", "outcome"}
+        # A criterion node's nested display/routes/expr survive untouched.
+        criterion = next(n for n in resp.graph.nodes if n["type"] == "criterion")
+        assert criterion["display"]["sentence"] == "car.policy.period_valid equals true"
+        assert criterion["display"]["routes"]["kind"] == "leaf"
+        assert resp.graph.stats == {
+            "total_fields": 11,
+            "shared_fields": 0,
+            "total_criteria": 13,
+            "total_groups": 12,
+            "sections": 1,
+        }
+        assert resp.mermaid is not None and resp.mermaid.startswith("graph TD")
+
+    def test_rulebook_graph_carries_rulebook_id_not_ruleset_id(self):
+        """The rulebook graph route (``GET .../rulebooks/{id}/graph``) omits
+        ``ruleset_id``/``slug``/``name`` and returns ``rulebook_id`` instead —
+        confirmed against aethis-core's ``get_rulebook_graph`` handler, which
+        seeds its result dict with only ``{"rulebook_id": rulebook_id}``."""
+        payload = {
+            "rulebook_id": "rb_SxYaJv5uSvb5qHzW",
+            "graph": {"nodes": [], "edges": [], "sections": [], "stats": {}},
+            "mermaid": "graph TD\n",
+        }
+        resp = GraphResponse.model_validate(payload)
+        assert resp.rulebook_id == "rb_SxYaJv5uSvb5qHzW"
+        assert resp.ruleset_id is None
+        assert resp.graph.nodes == []
+
+    def test_legacy_or_empty_graph_still_parses(self):
+        """A ruleset with no criteria (or a legacy graph shape predating a
+        node type) must not fail closed — nodes/edges default to empty."""
+        payload = {
+            "ruleset_id": "empty:v1",
+            "graph": {"nodes": [], "edges": [], "sections": [], "stats": None},
+        }
+        resp = GraphResponse.model_validate(payload)
+        assert resp.graph.nodes == []
+        assert resp.graph.stats is None
+        assert resp.mermaid is None
+
+    def test_graph_and_mermaid_are_independently_optional(self):
+        """``?format=mermaid`` omits ``graph`` entirely; ``?format=graph``
+        omits ``mermaid`` entirely — both must parse."""
+        mermaid_only = GraphResponse.model_validate({"ruleset_id": "x:v1", "mermaid": "graph TD\n"})
+        assert mermaid_only.graph is None
+        assert mermaid_only.mermaid == "graph TD\n"
+
+        graph_only = GraphResponse.model_validate(
+            {"ruleset_id": "x:v1", "graph": {"nodes": [], "edges": [], "sections": [], "stats": None}}
+        )
+        assert graph_only.mermaid is None
+        assert graph_only.graph is not None
+
+
+class TestDecideResponseGraphOverlay:
+    """``graph_overlay`` — the ``/decide`` counterpart of ``include_graph_overlay``."""
+
+    def test_graph_overlay_optional_for_back_compat(self):
+        resp = DecideResponse.model_validate({"decision": "eligible"})
+        assert resp.graph_overlay is None
+
+    def test_graph_overlay_round_trips_when_present(self):
+        overlay = {"nodes": [{"id": "criterion:period_valid", "overlay": {"status": "satisfied"}}]}
+        resp = DecideResponse.model_validate({"decision": "eligible", "graph_overlay": overlay})
+        assert resp.graph_overlay == overlay
