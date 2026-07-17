@@ -1,0 +1,132 @@
+name: staging-integration
+
+# Nightly report-only lane: mint a real key on staging the way a user does,
+# exercise every public SDK method + typed errors + fixture parity against the
+# deployed engine, and emit a qa_runs record. NOT a PR gate — it does not block
+# a merge. A lane that cannot run reports RED, never green-by-skip: missing
+# secrets / unreachable staging / a wedged mint all fail loud.
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC nightly
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-staging-integration
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    env:
+      CLERK_SECRET_KEY_DEV_TOOLS: ${{ secrets.CLERK_SECRET_KEY_DEV_TOOLS }}
+      CLERK_E2E_DX_USER_ID: ${{ vars.CLERK_E2E_DX_USER_ID }}
+      AETHIS_STAGING_BASE_URL: https://staging.api.aethis.ai
+      LANE: sdk-staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv pip install --system -e '.[dev]'
+
+      - name: Guard — required credentials present (red, not skip)
+        run: |
+          missing=0
+          [ -n "$CLERK_SECRET_KEY_DEV_TOOLS" ] || { echo "::error::CLERK_SECRET_KEY_DEV_TOOLS is not set"; missing=1; }
+          [ -n "$CLERK_E2E_DX_USER_ID" ] || { echo "::error::CLERK_E2E_DX_USER_ID is not set"; missing=1; }
+          if [ "$missing" -ne 0 ]; then
+            echo "Refusing to skip a lane that cannot run (report red, not skip-green)." >&2
+            exit 1
+          fi
+
+      - name: Record engine + SDK versions
+        id: versions
+        run: |
+          ENGINE=$(curl -sf --max-time 30 "$AETHIS_STAGING_BASE_URL/openapi.json" | python -c 'import sys,json; print(json.load(sys.stdin)["info"]["version"])' || echo unknown)
+          SDK=$(python -c 'import aethis_sdk; print(aethis_sdk.__version__)')
+          echo "engine=$ENGINE" >> "$GITHUB_OUTPUT"
+          echo "sdk=$SDK" >> "$GITHUB_OUTPUT"
+          echo "Engine $ENGINE / SDK $SDK"
+
+      - name: Run staging lane
+        id: lane
+        run: |
+          set +e
+          pytest -m staging -o addopts="" -v -p no:cacheprovider
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Build qa-run-record
+        if: always()
+        env:
+          ENGINE_VERSION: ${{ steps.versions.outputs.engine }}
+          SDK_VERSION: ${{ steps.versions.outputs.sdk }}
+          LANE_EXIT: ${{ steps.lane.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import date
+
+          exit_code = os.environ.get("LANE_EXIT")
+          # No exit code recorded => the lane never ran (guard/setup failure) => blocked.
+          if exit_code is None or exit_code == "":
+              verdict = "blocked"
+          else:
+              verdict = "pass" if exit_code == "0" else "fail"
+
+          run_id = os.environ.get("GITHUB_RUN_ID", "local")
+          server = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+          repo = os.environ.get("GITHUB_REPOSITORY", "Aethis-ai/aethis-sdk-python")
+          record = {
+              "schema_version": 1,
+              # NOTE: downstream ingestion wiring (the dev-platform run-record
+              # taxonomy) lands separately. Until then this artifact is
+              # uploaded, not ingested.
+              "source": "dev_platform",
+              "lane": os.environ["LANE"],
+              "natural_key": f"{os.environ['LANE']}:{run_id}",
+              "verdict": verdict,
+              "profile": None,
+              "engine_version": os.environ.get("ENGINE_VERSION") or None,
+              "run_date": date.today().isoformat(),
+              "run_ref": f"{server}/{repo}/actions/runs/{run_id}",
+              "artifact_ref": None,
+              "notes": f"aethis-sdk {os.environ.get('SDK_VERSION')} vs engine {os.environ.get('ENGINE_VERSION')}",
+              "raw": {
+                  "sdk_version": os.environ.get("SDK_VERSION"),
+                  "engine_version": os.environ.get("ENGINE_VERSION"),
+                  "lane_exit_code": exit_code,
+              },
+          }
+          with open("qa-run-record.json", "w") as f:
+              json.dump(record, f, indent=2)
+          print(json.dumps(record, indent=2))
+          PY
+
+      - name: Upload qa-run-record artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-run-record
+          path: qa-run-record.json
+          if-no-files-found: error
+
+      - name: Reflect lane result in the job status
+        if: always()
+        run: |
+          code="${{ steps.lane.outputs.exit_code }}"
+          if [ -z "$code" ] || [ "$code" != "0" ]; then
+            echo "::error::staging lane did not pass (exit '${code:-none}')"
+            exit 1
+          fi
