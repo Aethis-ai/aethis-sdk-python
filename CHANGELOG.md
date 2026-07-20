@@ -4,6 +4,10 @@ All notable changes to `aethis-sdk` will be documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- **ci: cut a GitHub Release on publish.** The `publish` workflow now creates a GitHub Release for each just-published tag, using that version's `CHANGELOG.md` section as the release notes, so the "watch → releases" subscribe channel stays current automatically. Idempotent (create-or-skip on an existing Release) and `--verify-tag` (never mints a synthetic tag). No package/runtime change. (epic aethis-workspace#526)
+
 ## 0.9.0 (2026-07-17)
 - **feat(models): `robot_hints` + `engine_version` on the rulebook schema; `engine_version` on the ruleset schema.** New `RulebookSchemaResponse` model (`rulebook_id`, `sections`, `fields`, `robot_hints`, `engine_version`) for `GET /api/v1/public/rulebooks/{id}/schema` — `robot_hints` is the rulebook's natural-language conversational-agent guidance keyed by beat (`general_context`, `preamble`, `session_start`, `postamble`, `session_end`, `stuck`), `None` for a rulebook authored before the field existed. `SchemaResponse` (ruleset schema) gains `engine_version: str | None = None` for parity, also back-compat (defaults `None` when the engine doesn't send it — true of the ruleset schema route today).
 - **feat(models): `graph`/`GraphResponse` for the new `/graph` endpoint.** New `GraphResponse` (`ruleset_id`/`rulebook_id`, `slug`, `name`, `graph`, `mermaid`) and `RulesetGraph` (`nodes`, `edges`, `sections`, `stats`) model the ruleset/rulebook dependency graph (field → criterion → group → outcome) plus its rendered Mermaid diagram. Node/edge shape varies by node `type`, so nodes/edges stay loosely-typed dicts rather than a rigid per-type schema — deliberately permissive so a legacy or empty graph (`nodes: []`) still parses.
