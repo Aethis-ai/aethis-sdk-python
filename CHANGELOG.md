@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.10.0 (2026-07-21)
+
+- **feat: `usage()` + `client.rate_limit` — rate-limit budget + headers.** New `Aethis.usage()` / `AsyncAethis.usage()` return a `UsageResponse` (per-operation-class `used`/`limit`/`remaining`/`reset` over the rolling 24h window + a 7/30-day rolling summary) from `GET /api/v1/public/usage`. Every response's `X-RateLimit-*` headers are now parsed onto `client.rate_limit` (a `RateLimit` model: `operation_class`/`limit`/`remaining`/`reset`), so a consuming app can read its remaining budget — especially `generate` (the scarce LLM class) — without a separate call. New models `UsageResponse`, `ClassUsage`, `RollingUsage`, `RateLimit`, all exported. (epic aethis-workspace#552)
+- Requires aethis-core's `/usage` + `X-RateLimit-*` surface (epic #552 P2); the public release of this version is held until that is live on `api.aethis.ai`.
 - **ci: cut a GitHub Release on publish.** The `publish` workflow now creates a GitHub Release for each just-published tag, using that version's `CHANGELOG.md` section as the release notes, so the "watch → releases" subscribe channel stays current automatically. Idempotent (create-or-skip on an existing Release) and `--verify-tag` (never mints a synthetic tag). No package/runtime change. (epic aethis-workspace#526)
 
 ## 0.9.0 (2026-07-17)

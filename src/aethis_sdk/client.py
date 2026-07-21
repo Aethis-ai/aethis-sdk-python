@@ -22,14 +22,34 @@ from aethis_sdk.errors import AethisError, AethisTimeout
 from aethis_sdk.models import (
     DecideResponse,
     GraphResponse,
+    RateLimit,
     RulebookSchemaResponse,
     RulesetSummary,
     SchemaResponse,
+    UsageResponse,
 )
 
 DECIDE_PATH = "/api/v1/public/decide"
 WHOAMI_PATH = "/api/v1/public/me"
 RULESETS_PATH = "/api/v1/public/rulesets"
+USAGE_PATH = "/api/v1/public/usage"
+
+
+def _parse_rate_limit(resp: httpx.Response) -> RateLimit | None:
+    """Parse the X-RateLimit-* budget headers (epic #552) from a response, or
+    None when the server didn't send them (unauthenticated / non-metered)."""
+    cls = resp.headers.get("X-RateLimit-Class")
+    if cls is None:
+        return None
+    try:
+        return RateLimit(
+            operation_class=cls,
+            limit=int(resp.headers["X-RateLimit-Limit"]),
+            remaining=int(resp.headers["X-RateLimit-Remaining"]),
+            reset=int(resp.headers["X-RateLimit-Reset"]),
+        )
+    except (KeyError, ValueError):
+        return None
 
 
 def _schema_path(ruleset_id: str) -> str:
@@ -125,6 +145,7 @@ class Aethis:
     ) -> None:
         self._base_url = validate_base_url(base_url, is_test=transport is not None)
         self._headers = build_headers(api_key, iam_token)
+        self._last_rate_limit: RateLimit | None = None
         self._timeout = timeout
         self._transport = transport
         self._client: httpx.Client | None = None
@@ -209,6 +230,22 @@ class Aethis:
         resp = self._request("GET", RULESETS_PATH, params={"limit": limit, "offset": offset})
         return [RulesetSummary.model_validate(item) for item in resp.json()]
 
+    @property
+    def rate_limit(self) -> RateLimit | None:
+        """The ``X-RateLimit-*`` budget from the most recent response (epic #552),
+        or None if the server sent none. Read after any call to see remaining
+        budget for that call's operation class."""
+        return self._last_rate_limit
+
+    def usage(self) -> UsageResponse:
+        """Return the per-operation-class rate-limit budget for the calling key.
+
+        ``generate`` (LLM rule generation) is the scarce class; ``read`` is
+        effectively unlimited-but-metered. Requires an API key.
+        """
+        resp = self._request("GET", USAGE_PATH)
+        return UsageResponse.model_validate(resp.json())
+
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
         resp = self._request("GET", _schema_path(ruleset_id))
@@ -291,6 +328,7 @@ class Aethis:
 
             if not is_5xx(resp):
                 classify_response(resp)
+                self._last_rate_limit = _parse_rate_limit(resp)
                 return resp
 
             last_status = resp.status_code
@@ -330,6 +368,7 @@ class AsyncAethis:
     ) -> None:
         self._base_url = validate_base_url(base_url, is_test=transport is not None)
         self._headers = build_headers(api_key, iam_token)
+        self._last_rate_limit: RateLimit | None = None
         self._timeout = timeout
         self._transport = transport
         self._client: httpx.AsyncClient | None = None
@@ -405,6 +444,21 @@ class AsyncAethis:
         """
         resp = await self._request("GET", RULESETS_PATH, params={"limit": limit, "offset": offset})
         return [RulesetSummary.model_validate(item) for item in resp.json()]
+
+    @property
+    def rate_limit(self) -> RateLimit | None:
+        """The ``X-RateLimit-*`` budget from the most recent response (epic #552),
+        or None if the server sent none."""
+        return self._last_rate_limit
+
+    async def usage(self) -> UsageResponse:
+        """Return the per-operation-class rate-limit budget for the calling key.
+
+        ``generate`` is the scarce class; ``read`` is effectively unlimited-but-
+        metered. Requires an API key.
+        """
+        resp = await self._request("GET", USAGE_PATH)
+        return UsageResponse.model_validate(resp.json())
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
@@ -486,6 +540,7 @@ class AsyncAethis:
 
             if not is_5xx(resp):
                 classify_response(resp)
+                self._last_rate_limit = _parse_rate_limit(resp)
                 return resp
 
             last_status = resp.status_code
