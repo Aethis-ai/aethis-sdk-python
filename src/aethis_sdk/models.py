@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Decision = Literal["eligible", "not_eligible", "undetermined"]
 SectionStatus = Literal["satisfied", "not_satisfied", "pending"]
@@ -182,3 +182,41 @@ class RulesetListItem(BaseModel):
     total_fields: int
     total_rules: int
     created_at: str | None = None
+
+
+class ClassUsage(BaseModel):
+    """Per-operation-class budget for the calling key (epic aethis-workspace#552)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    operation_class: str = Field(alias="class")
+    limit: int
+    used: int
+    remaining: int
+    reset: int  # epoch seconds of the next reset (rolling-window hour boundary)
+
+
+class RollingUsage(BaseModel):
+    last_7_days: dict[str, int] = Field(default_factory=dict)
+    last_30_days: dict[str, int] = Field(default_factory=dict)
+
+
+class UsageResponse(BaseModel):
+    """The `GET /api/v1/public/usage` payload: per-class budget + rolling summary."""
+
+    tier: str
+    classes: list[ClassUsage]
+    rolling: RollingUsage
+
+
+class RateLimit(BaseModel):
+    """The `X-RateLimit-*` budget parsed from the most recent response (epic #552).
+
+    Exposed via ``client.rate_limit`` so a consuming app can read remaining budget
+    (especially ``generate``) without a separate ``usage()`` call. None until the
+    first metered, authenticated response."""
+
+    operation_class: str  # X-RateLimit-Class
+    limit: int
+    remaining: int
+    reset: int  # epoch seconds

@@ -13,11 +13,14 @@ from aethis_sdk.errors import (
     AethisUnavailable,
 )
 from aethis_sdk.models import (
+    ClassUsage,
     DecideResponse,
     Decision,
     FieldNote,
     GraphResponse,
     NextQuestion,
+    RateLimit,
+    RollingUsage,
     RulebookSchemaResponse,
     RulesetGraph,
     RulesetListItem,
@@ -26,6 +29,7 @@ from aethis_sdk.models import (
     SchemaResponse,
     SectionResult,
     SectionStatus,
+    UsageResponse,
 )
 from aethis_sdk.session import DecisionSession, SessionStatus, SyncDecisionSession
 
@@ -45,11 +49,14 @@ __all__ = [
     "AethisRateLimitError",
     "AethisUnavailable",
     "AethisTimeout",
+    "ClassUsage",
     "DecideResponse",
     "Decision",
     "FieldNote",
     "GraphResponse",
     "NextQuestion",
+    "RateLimit",
+    "RollingUsage",
     "RulebookSchemaResponse",
     "RulesetGraph",
     "RulesetListItem",
@@ -58,6 +65,7 @@ __all__ = [
     "SchemaResponse",
     "SectionResult",
     "SectionStatus",
+    "UsageResponse",
     "DecisionSession",
     "SyncDecisionSession",
     "SessionStatus",
