@@ -2,8 +2,8 @@
   "body": {
     "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
     "decision": "undetermined",
-    "decision_id": "dec_J3X_EhmdPkn_WYjP",
-    "decision_time": "2026-07-26T04:43:44.632123Z",
+    "decision_id": "dec_bxk13nA_44UpxbZP",
+    "decision_time": "2026-07-26T06:02:33.259974Z",
     "engine_version": "aethis-core@0.48.0",
     "explanation": null,
     "field_errors": {
@@ -37,7 +37,7 @@
   },
   "provenance": {
     "anonymous": true,
-    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_at": "2026-07-26T06:02:33Z",
     "captured_from": "https://staging.api.aethis.ai",
     "engine_version": "0.48.0",
     "note": "Blocking field_errors force decision=undetermined AND next_question=null \u2014 the shape a caller could mistake for 'nothing left to ask, so we are done'."

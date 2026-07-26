@@ -23,6 +23,7 @@ Two rules make the identity safe to build on, and both live here:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -30,6 +31,32 @@ from pydantic import BaseModel, ConfigDict
 # Wire values that mean "the engine could not resolve this", not a real label.
 # Compared case-insensitively after stripping.
 UNRESOLVED_SENTINELS = frozenset({"", "unknown", "none", "null", "n/a"})
+
+# The engine constrains a content digest to exactly this (`^sha256:[0-9a-f]{64}$`).
+# A value that does not match addresses nothing: `md5:...`, a truncated
+# `sha256:beef`, uppercase hex, or a bare string are all unusable as the
+# content-address of a rule artefact, and an audit record pinned to one is the
+# same "looks like a value, isn't" failure this module exists to prevent.
+CONTENT_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def is_content_addressable(value: Any) -> bool:
+    """True only for a digest that can actually address content."""
+    return isinstance(value, str) and bool(CONTENT_DIGEST_PATTERN.match(value))
+
+
+def normalise_content_digest(value: Any) -> str | None:
+    """A usable content digest, or ``None``.
+
+    Unresolved sentinels collapse first (so ``"unknown"`` is absence, not a
+    malformed digest); anything else that is not a well-formed
+    ``sha256:<64 lowercase hex>`` also collapses to ``None`` rather than being
+    carried forward as something a caller might store.
+    """
+    normalised = normalise_identity_value(value)
+    if normalised is None:
+        return None
+    return normalised if is_content_addressable(normalised) else None
 
 
 def normalise_identity_value(value: Any) -> str | None:

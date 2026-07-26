@@ -127,10 +127,10 @@ class Aethis:
     Two access boundaries, and the client makes the difference explicit:
 
     * **Evaluation — no key.** ``decide``, ``list_rulesets``, ``get_schema``,
-      ``get_graph``, ``get_explanation``/``explain`` and ``get_source`` work
-      anonymously against public rulesets during the developer beta.
-    * **Authoring — invite only.** Publishing, project and rulebook endpoints
-      require an issued API key. Without one they answer 401, and the SDK
+      ``get_graph`` and ``get_explanation``/``explain`` work anonymously
+      against public rulesets during the developer beta.
+    * **Authoring — invite only.** Publishing, project and rulebook endpoints,
+      ``whoami`` and ``get_source`` require an issued API key. Without one they answer 401, and the SDK
       raises :class:`~aethis_sdk.errors.AethisAuthError` with
       ``boundary == "authoring"`` and the access-request link in the message.
 
@@ -314,7 +314,15 @@ class Aethis:
         return resp.json()
 
     def get_source(self, ruleset_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a ruleset."""
+        """Return the source-text provenance for a ruleset.
+
+        **Key-required, and not part of the no-key evaluation surface.** This
+        endpoint is gated behind a scope that is not granted to external keys,
+        so an anonymous call answers 401 regardless of the ruleset's
+        visibility. For published citations, use :meth:`get_explanation`, which
+        is anonymous on a public ruleset and returns the same
+        :class:`~aethis_sdk.models.SourceReference` DTO.
+        """
         resp = self._request("GET", _source_path(ruleset_id))
         return resp.json()
 
@@ -540,7 +548,11 @@ class AsyncAethis:
         return resp.json()
 
     async def get_source(self, ruleset_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a ruleset."""
+        """Return the source-text provenance for a ruleset.
+
+        Key-required — see :meth:`Aethis.get_source`. Prefer
+        :meth:`get_explanation` for anonymous access to published citations.
+        """
         resp = await self._request("GET", _source_path(ruleset_id))
         return resp.json()
 

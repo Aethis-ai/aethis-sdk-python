@@ -189,3 +189,54 @@ class TestSessionCarriesIdentity:
             status = await session.status()
         assert status.replay_identity is not None
         assert status.replay_identity.ruleset_version == "v99"
+
+
+class TestContentDigestMustAddressContent:
+    """A digest that addresses nothing is the same failure as a fake version.
+
+    The engine constrains ``content_digest`` to ``^sha256:[0-9a-f]{64}$``. An
+    audit record pinned to ``md5:...``, a truncated ``sha256:beef``, or
+    uppercase hex looks pinned and is not — nothing can be re-derived from it.
+    """
+
+    @pytest.mark.parametrize(
+        "malformed",
+        [
+            "md5:" + "ab" * 16,
+            "sha256:beef",
+            "sha256:" + "ab" * 31,  # 62 hex chars, one byte short
+            "sha256:" + "zz" * 32,  # right length, not hex
+            "SHA256:" + "AB" * 32,  # right shape, wrong case
+            "sha256:" + "ab" * 33,  # too long
+            "ab" * 32,  # bare hex, no algorithm
+            "not-a-digest",
+        ],
+    )
+    def test_a_malformed_digest_is_absence_not_a_value(self, malformed: str) -> None:
+        response = DecideResponse.model_validate(make_decide_response(content_digest=malformed))
+        assert response.content_digest is None
+        assert response.content_identity is None
+        with pytest.raises(AethisReplayIdentityError) as exc:
+            response.require_replay_identity()
+        assert "content_digest" in exc.value.missing
+
+    def test_a_well_formed_digest_survives(self) -> None:
+        digest = "sha256:" + "ab" * 32
+        response = DecideResponse.model_validate(make_decide_response(**{**RESOLVED, "content_digest": digest}))
+        assert response.content_digest == digest
+        assert response.require_replay_identity().content_digest == digest
+
+    def test_the_real_engine_digest_is_accepted(self) -> None:
+        """Guard against a pattern so strict it rejects reality."""
+        response = DecideResponse.model_validate(wire_body("decide_partial"))
+        assert response.require_replay_identity().content_digest == wire_body("decide_partial")["content_digest"]
+
+    def test_schema_and_explain_apply_the_same_rule(self) -> None:
+        from aethis_sdk import ExplainResponse
+
+        schema = SchemaResponse.model_validate(make_schema_response(content_digest="md5:" + "ab" * 16))
+        assert schema.content_digest is None
+        explain = ExplainResponse.model_validate(
+            {**wire_body("explain"), "content_digest": "sha256:short"}
+        )
+        assert explain.content_digest is None

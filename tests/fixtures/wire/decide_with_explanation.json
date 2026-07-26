@@ -2,8 +2,8 @@
   "body": {
     "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
     "decision": "not_eligible",
-    "decision_id": "dec_TrmnNqfexE9j9fZv",
-    "decision_time": "2026-07-26T04:43:44.687526Z",
+    "decision_id": "dec_fOsGWyj-ePFB7p8-",
+    "decision_time": "2026-07-26T06:02:33.328093Z",
     "engine_version": "aethis-core@0.48.0",
     "explanation": {
       "decision": "not_eligible",
@@ -249,15 +249,15 @@
           "is_access_damage",
           [
             {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
+              "type": "condition"
+            },
+            {
               "field": "car.claim.is_access_damage",
               "raw": "answer_car.claim.is_access_damage_False",
               "type": "answer",
               "value": "False"
-            },
-            {
-              "expression": "CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
-              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
-              "type": "condition"
             }
           ]
         ],
@@ -297,15 +297,15 @@
           "project_500m",
           [
             {
+              "expression": "500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "raw": "cond_500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "type": "condition"
+            },
+            {
               "field": "car.project.value_millions_gbp",
               "raw": "answer_car.project.value_millions_gbp_5",
               "type": "answer",
               "value": "5"
-            },
-            {
-              "expression": "500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
-              "raw": "cond_500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
-              "type": "condition"
             }
           ]
         ],
@@ -345,7 +345,7 @@
   },
   "provenance": {
     "anonymous": true,
-    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_at": "2026-07-26T06:02:33Z",
     "captured_from": "https://staging.api.aethis.ai",
     "engine_version": "0.48.0",
     "note": "POST /decide nests the explanation under explanation.groups[].criteria[]."

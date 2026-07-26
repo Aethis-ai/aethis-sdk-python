@@ -28,7 +28,7 @@ jobs:
         run: uv pip install --system -e '.[dev]'
 
       - name: Ruff
-        run: ruff check src tests scripts
+        run: ruff check src tests scripts examples
 
       - name: Pytest (mocked PR gate — staging lane excluded via addopts; coverage floor here)
         run: pytest -v --cov=aethis_sdk --cov-report=term-missing --cov-fail-under=45

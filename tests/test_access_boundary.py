@@ -128,3 +128,60 @@ class TestNonAccessFailuresAreNotLabelled:
             with pytest.raises(AethisAPIError) as exc:
                 client.get_schema("nope")
         assert exc.value.boundary is None
+
+
+class TestKeyRequiredSubpathsAreNotClaimedByThePrefix:
+    """`/rulesets/{id}/source` sits under an evaluation prefix but needs a key.
+
+    Labelling it "evaluation" is worse than not labelling it: it tells a
+    developer to go hunting a ruleset-visibility problem for a door that will
+    never open to them, because the scope behind it is not issued to external
+    keys. This was live behaviour until the prefix match was tightened —
+    `/public/rulebooks` had been carved out and `/source` had not.
+    """
+
+    def test_get_source_is_labelled_authoring(self) -> None:
+        with Aethis(base_url="http://test", transport=_status_transport(401, CAPTURED_401["body"])) as client:
+            with pytest.raises(AethisAuthError) as exc:
+                client.get_source("aethis/construction-all-risks")
+        assert exc.value.boundary == BOUNDARY_AUTHORING
+        message = str(exc.value)
+        assert "invite-only" in message
+        assert "needs no key for a public ruleset" not in message, "must not send the reader hunting visibility"
+
+    async def test_async_get_source_is_labelled_authoring(self) -> None:
+        async with AsyncAethis(base_url="http://test", transport=_status_transport(401, CAPTURED_401["body"])) as c:
+            with pytest.raises(AethisAuthError) as exc:
+                await c.get_source("aethis/construction-all-risks")
+        assert exc.value.boundary == BOUNDARY_AUTHORING
+
+    def test_its_sibling_read_paths_are_still_evaluation(self) -> None:
+        """The tightening must not sweep the genuinely anonymous paths with it."""
+        from aethis_sdk._base import access_boundary
+
+        for path in (
+            "/api/v1/public/rulesets/aethis/car/schema",
+            "/api/v1/public/rulesets/aethis/car/explain",
+            "/api/v1/public/rulesets/aethis/car/graph",
+            "/api/v1/public/rulesets",
+        ):
+            assert access_boundary(path, 401) == BOUNDARY_EVALUATION, path
+
+    def test_every_client_method_gets_a_boundary_on_401(self) -> None:
+        """No method may be left unlabelled — that is how /source was missed."""
+        from aethis_sdk._base import access_boundary
+
+        paths = [
+            "/api/v1/public/decide",
+            "/api/v1/public/me",
+            "/api/v1/public/usage",
+            "/api/v1/public/rulesets",
+            "/api/v1/public/rulesets/x/schema",
+            "/api/v1/public/rulesets/x/graph",
+            "/api/v1/public/rulesets/x/explain",
+            "/api/v1/public/rulesets/x/source",
+            "/api/v1/public/rulesets/x/explain-failure",
+            "/api/v1/public/rulebooks/x/schema",
+        ]
+        for path in paths:
+            assert access_boundary(path, 401) in (BOUNDARY_EVALUATION, BOUNDARY_AUTHORING), path

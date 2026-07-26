@@ -161,15 +161,141 @@ class TestHermeticEnvironment:
         assert env["AETHIS_NONINTERACTIVE"] == "1"
 
 
-class TestPoisonedArtefact:
-    def test_poison_keeps_the_name_and_size_but_changes_the_bytes(self, tmp_path: Path) -> None:
-        real = tmp_path / "aethis_sdk-9.9.9-py3-none-any.whl"
-        real.write_bytes(b"authentic-artefact-bytes")
-        poisoned = hermetic.poison(real, tmp_path / "poison")
-        assert poisoned.name == real.name
-        assert poisoned.stat().st_size == real.stat().st_size
-        assert poisoned.read_bytes() != real.read_bytes()
-        assert integrity.sha256_file(poisoned) != integrity.sha256_file(real)
+@pytest.fixture
+def real_wheel(tmp_path: Path) -> Path:
+    """A structurally genuine wheel — a zip with a compressible member."""
+    import zipfile
+
+    wheel = tmp_path / "aethis_sdk-9.9.9-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("aethis_sdk/__init__.py", "VERSION = '9.9.9'\n" + "# padding\n" * 400)
+        archive.writestr("aethis_sdk-9.9.9.dist-info/METADATA", "Name: aethis-sdk\nVersion: 9.9.9\n")
+    return wheel
+
+
+class TestSubstitutedArtefact:
+    """The realistic attack: a *working* wheel with someone else's code in it.
+
+    An attacker ships something that installs. So the installer can never be
+    the control for this — only the digest can.
+    """
+
+    def test_substitution_keeps_the_filename_and_stays_installable(self, real_wheel: Path, tmp_path: Path) -> None:
+        import zipfile
+
+        substituted = hermetic.substitute_artefact(real_wheel, tmp_path / "sub")
+        assert substituted.name == real_wheel.name
+        assert substituted.read_bytes() != real_wheel.read_bytes()
+        # Still a valid archive — that is the whole point.
+        with zipfile.ZipFile(substituted) as archive:
+            assert archive.testzip() is None
+            assert b"substituted build" in archive.read("aethis_sdk/__init__.py")
+
+    def test_the_digest_gate_rejects_it(self, real_wheel: Path, tmp_path: Path) -> None:
+        substituted = hermetic.substitute_artefact(real_wheel, tmp_path / "sub")
+        assert integrity.sha256_file(substituted) != integrity.sha256_file(real_wheel)
+
+
+class TestCorruptedArtefact:
+    """The installer control — and why the first version of it was vacuous.
+
+    Flipping the final byte lands in the end-of-central-directory comment
+    field. Strict readers reject it; lenient ones scan backwards, find the
+    signature, and install happily — which is why the original control passed
+    locally and silently did nothing on all six CI cells.
+    """
+
+    def test_corruption_targets_the_compressed_stream_not_the_trailer(
+        self, real_wheel: Path, tmp_path: Path
+    ) -> None:
+        import zipfile
+
+        corrupted = hermetic.corrupt_artefact(real_wheel, tmp_path / "bad")
+        assert corrupted.stat().st_size == real_wheel.stat().st_size
+        # Structurally still a zip — the directory parses...
+        with zipfile.ZipFile(corrupted) as archive:
+            names = archive.namelist()
+            assert "aethis_sdk/__init__.py" in names
+            # ...but a member no longer matches its recorded CRC.
+            assert archive.testzip() is not None
+
+    def test_the_trailing_byte_flip_is_not_what_we_do_any_more(
+        self, real_wheel: Path, tmp_path: Path
+    ) -> None:
+        """Regression guard for the vacuous control."""
+        corrupted = hermetic.corrupt_artefact(real_wheel, tmp_path / "bad")
+        original = real_wheel.read_bytes()
+        mutated = corrupted.read_bytes()
+        assert mutated[-4:] == original[-4:], "corruption must not live in the EOCD trailer"
+        differing = [i for i, (a, b) in enumerate(zip(original, mutated)) if a != b]
+        assert differing, "nothing was corrupted"
+        assert max(differing) < len(original) - 64, "corruption must sit inside the compressed data"
+
+    def test_the_evidence_pattern_matches_real_installer_output_and_not_noise(self) -> None:
+        for real in (
+            "Failed to extract archive: invalid Zip archive",
+            "I/O operation failed during extraction: corrupt deflate stream",
+            "error: Bad CRC-32 for file",
+            "not a valid wheel",
+        ):
+            assert hermetic._CORRUPTION_EVIDENCE.search(real), real
+        # A control asserted only negatively would accept all of these.
+        for noise in (
+            "error: Operation timed out after 600s",
+            "error: No space left on device",
+            "error: Failed to resolve dependencies for aethis-sdk",
+            "error: Distribution not found at: file:///tmp/x.whl",
+        ):
+            assert not hermetic._CORRUPTION_EVIDENCE.search(noise), noise
+
+
+class TestProvenanceGate:
+    """`--require-clean` must fail when provenance is *unknown*, not just dirty.
+
+    The first version returned `dirty: None` when git was unreadable and tested
+    it for falsiness, so removing `.git` made the gate exit 0 while recording
+    `commit: null` — a gate binding published bytes to nothing. Same vacuous
+    shape as the poisoned-artefact control; found once, so swept here too.
+    """
+
+    def test_a_clean_tree_has_no_problems(self) -> None:
+        tuple_ = {"source": {"commit": "a" * 40, "branch": "main", "dirty": False}}
+        assert integrity.provenance_problems(tuple_) == []
+
+    def test_a_dirty_tree_is_a_problem(self) -> None:
+        tuple_ = {"source": {"commit": "a" * 40, "branch": "main", "dirty": True}}
+        problems = integrity.provenance_problems(tuple_)
+        assert any("dirty" in problem for problem in problems)
+
+    def test_unreadable_git_is_a_problem_not_a_pass(self) -> None:
+        tuple_ = {"source": {"commit": None, "branch": None, "dirty": None, "error": "not a repository"}}
+        problems = integrity.provenance_problems(tuple_)
+        assert len(problems) == 2
+        assert any("pins the distribution to nothing" in problem for problem in problems)
+        assert any("unknown" in problem for problem in problems)
+
+    def test_a_missing_source_block_is_a_problem(self) -> None:
+        assert integrity.provenance_problems({}) != []
+
+    def test_require_clean_exits_non_zero_when_git_is_unreadable(
+        self, fake_dist: Path, tmp_path: Path
+    ) -> None:
+        """End-to-end through the CLI, on a directory that is not a git repo."""
+        not_a_repo = tmp_path / "not-a-repo"
+        not_a_repo.mkdir()
+        (not_a_repo / "pyproject.toml").write_text('[project]\nname = "aethis-sdk"\nversion = "9.9.9"\n')
+        code = integrity.main(
+            ["--repo", str(not_a_repo), "--dist", str(fake_dist), "--version", "9.9.9", "--require-clean"]
+        )
+        assert code == 1
+
+    def test_require_clean_passes_on_this_repo_when_clean(self, fake_dist: Path) -> None:
+        repo = Path(__file__).resolve().parent.parent
+        tuple_ = integrity.build_tuple(repo, fake_dist, version="9.9.9")
+        problems = integrity.provenance_problems(tuple_)
+        # Either clean (no problems) or dirty during development — but never
+        # "unknown", which is what this gate exists to catch.
+        assert all("unknown" not in problem for problem in problems)
 
 
 class TestRuntimeFacts:

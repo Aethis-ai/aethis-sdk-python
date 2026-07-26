@@ -100,6 +100,22 @@ def _referenced_names(node: Any) -> set[str]:
     return found
 
 
+def _strip_examples(node: Any) -> Any:
+    """Drop ``examples`` from a captured schema.
+
+    OpenAPI ``examples`` are illustrative only — they carry no structural
+    information and JSON-Schema validation ignores them — but they are authored
+    prose, so they can carry internal identifiers. The engine's `caller_ref`
+    example named a real pilot firm, which then landed in a committed fixture in
+    a public repo. Nothing here needs them, so they do not get captured.
+    """
+    if isinstance(node, dict):
+        return {key: _strip_examples(value) for key, value in node.items() if key != "examples"}
+    if isinstance(node, list):
+        return [_strip_examples(item) for item in node]
+    return node
+
+
 def _closure(schemas: dict[str, Any], roots: tuple[str, ...]) -> dict[str, Any]:
     """The transitive ``$ref`` closure of ``roots`` within ``schemas``."""
     wanted = set(roots)
@@ -111,7 +127,7 @@ def _closure(schemas: dict[str, Any], roots: tuple[str, ...]) -> dict[str, Any]:
         new = _referenced_names(schemas[current]) - wanted
         wanted |= new
         frontier |= new
-    return {name: schemas[name] for name in sorted(wanted)}
+    return {name: _strip_examples(schemas[name]) for name in sorted(wanted)}
 
 
 def _write(path: Path, payload: Any) -> None:
@@ -166,6 +182,7 @@ def capture_wire(base_url: str, ruleset: str) -> None:
                 "engine_version": engine_version,
             },
             "roots": list(SCHEMA_ROOTS),
+            "scrubbed": "OpenAPI `examples` are dropped — see _strip_examples()",
             "schemas": captured_schemas,
         },
     )

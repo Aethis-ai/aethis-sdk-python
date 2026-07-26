@@ -41,14 +41,22 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# The real gate, not a reimplementation: the digest control below must be
+# rejected by the same function the release pipeline runs.
+from release_integrity import sha256_file, verify_files  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 PACKAGE = "aethis-sdk"
@@ -251,14 +259,152 @@ def _failure(
     }
 
 
-def poison(path: Path, target_dir: Path) -> Path:
-    """A byte-mutated copy under the same filename — a substituted artefact."""
+# Installer errors that mean "these bytes are not the archive they claim to be".
+# Asserted POSITIVELY: a bare "the install failed" would also be satisfied by a
+# timeout, a resolver error, or a full disk — none of which prove anything about
+# artefact integrity.
+_CORRUPTION_EVIDENCE = re.compile(
+    r"invalid zip|failed to extract|not a valid wheel|bad crc|crc mismatch|"
+    r"checksum|corrupt|archive is invalid|unable to read",
+    re.IGNORECASE,
+)
+
+
+def substitute_artefact(path: Path, target_dir: Path) -> Path:
+    """A **valid, installable** wheel with the same filename and other contents.
+
+    This is what a real substitution looks like: an attacker does not ship a
+    corrupt file, they ship a working one with their code in it. It installs
+    perfectly — so the installer can never be the control here. Only the digest
+    can.
+    """
     target_dir.mkdir(parents=True, exist_ok=True)
-    poisoned = target_dir / path.name
+    substituted = target_dir / path.name
+    with zipfile.ZipFile(path) as source, zipfile.ZipFile(substituted, "w", zipfile.ZIP_DEFLATED) as target:
+        for info in source.infolist():
+            payload = source.read(info.filename)
+            if info.filename.endswith("__init__.py"):
+                payload = payload + b"\n# substituted build\n"
+            target.writestr(info, payload)
+    return substituted
+
+
+def corrupt_artefact(path: Path, target_dir: Path) -> Path:
+    """A structurally-parseable zip whose payload no longer matches its CRC.
+
+    An earlier version of this control just flipped the final byte. That lands
+    in the end-of-central-directory comment field: strict zip readers reject it,
+    lenient ones scan backwards, find the signature anyway, and install happily
+    — which is exactly what happened on every CI runner while the local machine
+    said the control was working. Corrupting the *compressed stream* leaves the
+    archive structurally valid and makes the stored CRC-32 wrong, which every
+    conformant extractor checks.
+    """
+    target_dir.mkdir(parents=True, exist_ok=True)
+    corrupted = target_dir / path.name
     data = bytearray(path.read_bytes())
-    data[-1] ^= 0xFF
-    poisoned.write_bytes(bytes(data))
-    return poisoned
+
+    with zipfile.ZipFile(path) as archive:
+        target_info = max(archive.infolist(), key=lambda info: info.compress_size)
+
+    # Local file header: 30 fixed bytes, then filename, then the extra field.
+    offset = target_info.header_offset
+    name_length = int.from_bytes(data[offset + 26 : offset + 28], "little")
+    extra_length = int.from_bytes(data[offset + 28 : offset + 30], "little")
+    payload_start = offset + 30 + name_length + extra_length
+    payload_end = payload_start + target_info.compress_size
+    if payload_end - payload_start < 8:  # pragma: no cover - wheels are never this small
+        raise SystemExit("cannot corrupt: largest member has no compressed payload")
+
+    middle = (payload_start + payload_end) // 2
+    for index in range(middle, min(middle + 8, payload_end)):
+        data[index] ^= 0xFF
+
+    corrupted.write_bytes(bytes(data))
+    return corrupted
+
+
+def run_negative_controls(
+    wheel: Path,
+    integrity_tuple: dict[str, Any] | None,
+    timeout: float,
+    python_version: str | None,
+) -> dict[str, Any]:
+    """Prove the artefact gates reject a bad artefact.
+
+    A verifier that has never been observed to fail proves nothing, so both
+    controls below must fail for the reason they claim:
+
+    * **digest** — a *valid, installable* substituted wheel must be rejected by
+      the real ``release_integrity.verify_files``. This is the layer that
+      actually protects users: it runs before anything is installed, and it does
+      not depend on the installer's tolerance. Deterministic on every runner.
+    * **installer** — a CRC-corrupted wheel must be refused by ``uv pip
+      install``, with stderr that names the corruption. Depends on installer
+      behaviour, so it is reported separately rather than being conflated with
+      the digest result.
+    """
+    controls: dict[str, Any] = {}
+    root = Path(tempfile.mkdtemp(prefix="aethis-poison-"))
+    try:
+        substituted = substitute_artefact(wheel, root / "substituted").resolve()
+        corrupted = corrupt_artefact(wheel, root / "corrupted").resolve()
+
+        # --- digest control -------------------------------------------------
+        if integrity_tuple is None:
+            controls["digest"] = {"ok": False, "reason": "no integrity tuple supplied (--integrity)"}
+        else:
+            real_problems = verify_files(integrity_tuple, wheel.parent)
+            substituted_problems = verify_files(integrity_tuple, substituted.parent)
+            installs = install_and_smoke(
+                label="substituted-artefact-installs",
+                install_args=[str(substituted)],
+                timeout=timeout,
+                python_version=python_version,
+            )
+            controls["digest"] = {
+                # The genuine artefact passes...
+                "real_artefact_accepted": real_problems == [],
+                # ...the substituted one is rejected...
+                "substituted_artefact_rejected": any("sha256" in problem for problem in substituted_problems),
+                # ...and it is a realistic substitution, i.e. it would have
+                # installed and run fine had the digest not caught it.
+                "substituted_artefact_is_installable": installs["ok"],
+                "substituted_sha256": sha256_file(substituted),
+                "rejection_detail": substituted_problems[:3],
+            }
+            controls["digest"]["ok"] = (
+                controls["digest"]["real_artefact_accepted"]
+                and controls["digest"]["substituted_artefact_rejected"]
+                and controls["digest"]["substituted_artefact_is_installable"]
+            )
+
+        # --- installer control ----------------------------------------------
+        attempt = install_and_smoke(
+            label="corrupted-artefact-control",
+            install_args=[str(corrupted)],
+            timeout=timeout,
+            python_version=python_version,
+        )
+        stderr = attempt.get("stderr", "")
+        evidence = _CORRUPTION_EVIDENCE.search(stderr)
+        controls["installer"] = {
+            "install_failed": not attempt["ok"],
+            "failed_at_install_stage": attempt.get("stage") == "uv pip install",
+            "stderr_names_the_corruption": bool(evidence),
+            "matched_evidence": evidence.group(0) if evidence else None,
+            "same_size_as_real_artefact": corrupted.stat().st_size == wheel.stat().st_size,
+            "stderr_excerpt": stderr[-600:],
+        }
+        controls["installer"]["ok"] = (
+            controls["installer"]["install_failed"]
+            and controls["installer"]["failed_at_install_stage"]
+            and controls["installer"]["stderr_names_the_corruption"]
+        )
+        controls["ok"] = controls["digest"]["ok"] and controls["installer"]["ok"]
+        return controls
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def runtime_facts() -> dict[str, Any]:
@@ -321,11 +467,10 @@ def main(argv: list[str] | None = None) -> int:
         report["mode"] = "local-artefact"
         report["artefact"] = wheel.name
 
+        integrity_tuple: dict[str, Any] | None = None
         if args.integrity is not None:
-            from release_integrity import sha256_file  # noqa: PLC0415 - optional dependency of this mode
-
-            expected = json.loads(args.integrity.read_text())
-            recorded = {entry["filename"]: entry["sha256"] for entry in expected["files"]}
+            integrity_tuple = json.loads(args.integrity.read_text())
+            recorded = {entry["filename"]: entry["sha256"] for entry in integrity_tuple["files"]}
             actual = sha256_file(wheel)
             report["integrity"] = {
                 "expected": recorded.get(wheel.name),
@@ -347,38 +492,13 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if not args.skip_poison_control:
-            # Negative control: the same install with substituted bytes must
-            # not silently succeed. A wheel is a zip; flipping a trailing byte
-            # corrupts the central directory, so the installer rejects it.
-            poison_root = Path(tempfile.mkdtemp(prefix="aethis-poison-"))
-            try:
-                poisoned = poison(wheel, poison_root).resolve()
-                assert poisoned.exists() and poisoned.stat().st_size == wheel.stat().st_size
-                control = install_and_smoke(
-                    label="poisoned-artefact-control",
-                    install_args=[str(poisoned)],
-                    timeout=args.timeout,
-                    python_version=args.python,
-                )
-                stderr = control.get("stderr", "")
-                # The control is only meaningful if the install failed because
-                # the BYTES were wrong. A missing-file error would make this a
-                # test of nothing — which is exactly how a vacuous control
-                # slips in.
-                failed_for_the_right_reason = not control["ok"] and "not found at" not in stderr
-                report["poison_control"] = {
-                    "install_failed_as_required": failed_for_the_right_reason,
-                    "artefact_present": True,
-                    "same_size_as_real_artefact": True,
-                    "stage": control.get("stage"),
-                    "stderr_excerpt": stderr[-600:],
-                }
-            finally:
-                shutil.rmtree(poison_root, ignore_errors=True)
+            report["negative_controls"] = run_negative_controls(
+                wheel, integrity_tuple, args.timeout, args.python
+            )
 
     ok = all(run_["ok"] for run_ in report["runs"])
-    if "poison_control" in report:
-        ok = ok and report["poison_control"]["install_failed_as_required"]
+    if "negative_controls" in report:
+        ok = ok and report["negative_controls"]["ok"]
     report["ok"] = ok
     _emit(report, args.json_out)
     return 0 if ok else 1

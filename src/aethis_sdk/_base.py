@@ -42,6 +42,15 @@ _TYPED_4XX = {
 # key-required) path, which is the authoring boundary.
 _EVALUATION_PATH_MARKERS = ("/public/rulesets",)
 
+# Sub-paths UNDER an evaluation prefix that are nonetheless key-required, so a
+# prefix match must not claim them for the evaluation surface. Getting this
+# wrong is worse than not labelling at all: it sends a developer hunting a
+# ruleset-visibility problem for a door that will never open to them.
+#
+# `/rulesets/{id}/source` is gated behind a scope external keys are not issued,
+# so no amount of ruleset visibility will make it answer.
+_AUTHORING_SUBPATHS = ("/source",)
+
 _AUTHORING_LABEL = (
     "Authoring is invite-only during the developer beta; evaluation "
     "(/decide, /rulesets, /rulesets/{id}/schema, /rulesets/{id}/explain) needs no key. "
@@ -68,6 +77,8 @@ def access_boundary(path: str, status_code: int) -> str | None:
     # A rulebook path lives on the authoring side even though it starts with
     # the same prefix as the anonymous ruleset catalogue.
     if "/public/rulebooks" in path:
+        return BOUNDARY_AUTHORING
+    if any(path.endswith(subpath) for subpath in _AUTHORING_SUBPATHS):
         return BOUNDARY_AUTHORING
     if any(marker in path for marker in _EVALUATION_PATH_MARKERS):
         return BOUNDARY_EVALUATION

@@ -181,24 +181,40 @@ with Aethis() as client:
     schema = client.get_schema(RULESET_ID)
     session = SyncDecisionSession(RULESET_ID, client, schema)
     session.answer("child.school_type", "state_funded")
-    while (nq := session.next_question()) is not None:
-        answer = input(f"{nq.question} ")
-        session.answer(nq.field_id, answer)
+
+    while True:
+        status = session.status()
+        if status.blocked:                     # inputs the engine could not use
+            raise SystemExit(status.field_errors)
+        if status.is_complete:                 # a real verdict
+            break
+        if status.next_question is None:       # undetermined on these answers
+            break
+        answer = input(f"{status.next_question.question} ")
+        session.answer(status.next_question.field_id, answer)
+
     print("Eligible:", session.is_eligible())
 ```
 
+**Loop on `status()`, not on `next_question()`.** `next_question()` returns
+`None` in three different situations — the decision is final, the ruleset cannot
+settle on these answers, or blocking input errors are suppressing further
+questions — and `while session.next_question() is not None:` treats all three as
+success. `status.blocked` and `status.is_complete` tell them apart:
+
+| | `blocked` | `is_complete` | `next_question` |
+|---|---|---|---|
+| Still asking | `False` | `False` | a field |
+| Finished with a verdict | `False` | `True` | `None` |
+| Undetermined on these answers | `False` | `False` | `None` |
+| **Blocked by input errors** | **`True`** | **`False`** | **`None`** |
+
+`status.field_errors` is always a dict (empty when clean) and
+`status.replay_identity` carries the resolved identity of the content that
+decided. `status.raise_if_blocked()` turns the blocked row into an exception if
+you would rather not branch.
+
 Note: `input()` returns a string. For non-string fields (int / bool / enum) coerce the answer before calling `session.answer()` — the API expects the typed value.
-
-**Do not use `next_question() is None` as your completion test.** It is also
-`None` when blocking errors are suppressing further questions. Ask the session:
-
-```python
-status = session.status()
-status.blocked       # True when the latest decision carried blocking errors
-status.field_errors  # {field_id: message}; always a dict
-status.is_complete   # True only for a clean, terminal verdict
-status.replay_identity
-```
 
 ### Source provenance
 

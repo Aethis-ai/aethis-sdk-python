@@ -16,6 +16,7 @@ turns the whole mocked suite into a test of a shape that no longer exists.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -170,3 +171,60 @@ class TestFixturesAreCommittedAsCapturedJson:
     def test_fixtures_are_readable_json(self) -> None:
         for name in ("engine_openapi_subset", "source_reference_exemplar"):
             assert isinstance(json.dumps(load_fixture(name)), str)
+
+
+class TestFixturesCarryNoInternalIdentifiers:
+    """This is a public repo; a committed fixture is published content.
+
+    The engine's OpenAPI `caller_ref` example named a real pilot firm, and
+    capturing the schema verbatim carried that name into a public repo. The
+    capture script now drops `examples` (they are illustrative, carry no
+    structural information, and validation ignores them); this test is the
+    standing guard, because the next leak will not be in the field we already
+    fixed.
+    """
+
+    # Pilot firm slugs and internal tenant names that must never be committed
+    # here. Names only — no other detail — since this file is public too.
+    FORBIDDEN = ("edgewater", "grabbit", "testfirm1", "immi-staging", "okbackend")
+
+    # Immigration content executes internal-only and must never appear in a
+    # public fixture (`.claude/rules/immigration-internal-only.md`).
+    FORBIDDEN_DOMAINS = ("form-an", "form_an", "naturalisation", "uk-naturalisation")
+
+    def _fixture_text(self) -> list[tuple[str, str]]:
+        root = Path(__file__).parent / "fixtures"
+        return [
+            (str(path.relative_to(root)), path.read_text(encoding="utf-8").lower())
+            for path in sorted(root.rglob("*.json"))
+        ]
+
+    def test_no_internal_tenant_names(self) -> None:
+        hits = [
+            f"{name}: {token}"
+            for name, text in self._fixture_text()
+            for token in self.FORBIDDEN
+            if token in text
+        ]
+        assert hits == [], f"internal identifiers in committed public fixtures: {hits}"
+
+    def test_no_immigration_content(self) -> None:
+        hits = [
+            f"{name}: {token}"
+            for name, text in self._fixture_text()
+            for token in self.FORBIDDEN_DOMAINS
+            if token in text
+        ]
+        assert hits == [], f"immigration content in committed public fixtures: {hits}"
+
+    def test_examples_are_stripped_from_captured_schemas(self) -> None:
+        """`examples` is authored prose — the vector the firm name arrived on."""
+
+        def has_examples(node: object) -> bool:
+            if isinstance(node, dict):
+                return "examples" in node or any(has_examples(v) for v in node.values())
+            if isinstance(node, list):
+                return any(has_examples(item) for item in node)
+            return False
+
+        assert not has_examples(engine_schema_registry())

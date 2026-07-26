@@ -73,16 +73,46 @@ def source_provenance(repo: Path) -> dict[str, Any]:
     """Where the built bytes came from, and whether the tree was clean.
 
     ``dirty`` matters: an integrity tuple computed from a modified working tree
-    pins a commit that does not contain the code that was built. It is recorded
-    rather than rejected here, and rejected by ``--require-clean`` in CI.
+    pins a commit that does not contain the code that was built.
+
+    When git cannot be read at all, ``dirty`` is ``None`` — **unknown**, which
+    is not the same as clean. ``--require-clean`` must treat it as a failure:
+    see :func:`provenance_problems`. (An earlier version returned ``None`` here
+    and tested it for falsiness, so removing ``.git`` made the gate binding
+    PyPI bytes to a protected-main commit exit 0 while recording
+    ``commit: null`` — a gate that binds to nothing.)
     """
     try:
         commit = _git(repo, "rev-parse", "HEAD")
         branch = _git(repo, "rev-parse", "--abbrev-ref", "HEAD")
         dirty = bool(_git(repo, "status", "--porcelain"))
-    except Exception as exc:  # pragma: no cover - provenance is best effort
+    except Exception as exc:  # provenance unreadable — recorded, never assumed clean
         return {"commit": None, "branch": None, "dirty": None, "error": str(exc)}
     return {"commit": commit, "branch": branch, "dirty": dirty}
+
+
+def provenance_problems(tuple_: dict[str, Any]) -> list[str]:
+    """Why this tuple cannot be trusted to pin a source commit — empty when it can.
+
+    Checked positively. ``dirty is not False`` catches both the modified tree
+    (``True``) and the unreadable-git case (``None``); a missing commit is
+    caught in its own right so the failure names what is actually wrong.
+    """
+    source = tuple_.get("source") or {}
+    problems: list[str] = []
+    if not source.get("commit"):
+        problems.append(
+            "no source commit recorded"
+            + (f" ({source['error']})" if source.get("error") else "")
+            + " — this tuple pins the distribution to nothing"
+        )
+    if source.get("dirty") is not False:
+        state = "unknown" if source.get("dirty") is None else "dirty"
+        problems.append(
+            f"working tree state is {state}, not verified clean — the recorded commit "
+            "may not contain the code that was built"
+        )
+    return problems
 
 
 def build_tuple(repo: Path, dist_dir: Path, version: str | None = None) -> dict[str, Any]:
@@ -159,12 +189,20 @@ def verify_files(expected: dict[str, Any], dist_dir: Path) -> list[str]:
     return problems
 
 
+def _tree_state_note(dirty: bool | None) -> str:
+    if dirty is True:
+        return "  (DIRTY WORKING TREE)"
+    if dirty is None:
+        return "  (TREE STATE UNKNOWN)"
+    return ""
+
+
 def render_summary(tuple_: dict[str, Any]) -> str:
     lines = [
         f"package:        {tuple_['package']}",
         f"version:        {tuple_['version']}",
-        f"source commit:  {tuple_['source'].get('commit')}"
-        + ("  (DIRTY WORKING TREE)" if tuple_["source"].get("dirty") else ""),
+        f"source commit:  {tuple_['source'].get('commit') or '<UNREADABLE — pins nothing>'}"
+        + _tree_state_note(tuple_["source"].get("dirty")),
         f"registry:       {tuple_['registry_release_url']}",
     ]
     for entry in tuple_["files"]:
@@ -196,9 +234,12 @@ def main(argv: list[str] | None = None) -> int:
             args.out.write_text(json.dumps(expected, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(render_summary(expected))
 
-    if args.require_clean and expected["source"].get("dirty"):
-        print("integrity tuple was computed from a dirty working tree", file=sys.stderr)
-        return 1
+    if args.require_clean:
+        problems = provenance_problems(expected)
+        if problems:
+            for problem in problems:
+                print(f"UNTRUSTWORTHY PROVENANCE: {problem}", file=sys.stderr)
+            return 1
 
     problems: list[str] = []
     if args.verify_files:

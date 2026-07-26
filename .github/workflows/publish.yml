@@ -91,6 +91,18 @@ jobs:
           fetch-tags: true
           path: source
 
+      # Last gate before an IRREVERSIBLE action. A PyPI upload cannot be
+      # recalled or replaced, so the bytes about to be published are re-hashed
+      # against the tuple the build job recorded — after the artefact round-trip
+      # through upload/download — while refusing is still free.
+      - name: Verify the artefacts about to be published match the recorded tuple
+        run: |
+          set -euo pipefail
+          python source/scripts/release_integrity.py \
+            --expect integrity/integrity.json --dist dist --verify-files
+          python source/scripts/release_integrity.py \
+            --expect integrity/integrity.json --require-clean
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

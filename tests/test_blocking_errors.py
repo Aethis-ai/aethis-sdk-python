@@ -228,3 +228,49 @@ class TestAsyncSessionBoundary:
             session = DecisionSession("aethis/construction-all-risks", client, schema)
             assert await session.is_complete() is True
             assert await session.is_eligible() is True
+
+
+class TestTheBeltHoldsWithoutTheBraces:
+    """Kill the mutants the validator and the invariant would otherwise mask.
+
+    `is_terminal` and `SessionStatus.is_complete` each carry a blocking-error
+    clause that no ordinary test can reach: the parse validator rejects a
+    contradicting payload before `is_terminal` sees it, and the constructor
+    invariant rejects a contradicting status before `is_complete` sees it. So
+    dropping either clause leaves the whole suite green — while removing the
+    last thing standing between a bypass route and a wrong answer.
+
+    These build the states the normal paths forbid.
+    """
+
+    def test_is_terminal_still_checks_blocking_errors_when_the_validator_is_bypassed(self) -> None:
+        # model_construct skips validation entirely — the documented escape
+        # hatch, and the one a caller reaching for speed would use.
+        response = DecideResponse.model_construct(
+            decision="eligible",
+            field_errors={"car.property.category": "bad"},
+        )
+        assert response.has_blocking_errors
+        assert response.is_terminal is False, "is_terminal must not rely on the parse validator"
+
+    def test_is_terminal_still_checks_blocking_errors_after_in_place_mutation(self) -> None:
+        response = DecideResponse.model_validate(make_decide_response(decision="eligible"))
+        assert response.is_terminal is True
+        object.__setattr__(response, "field_errors", {"car.property.category": "bad"})
+        assert response.is_terminal is False, "a post-parse mutation must not produce a terminal verdict"
+
+    def test_is_complete_still_checks_blocked_when_the_invariant_is_bypassed(self) -> None:
+        status = SessionStatus(decision="eligible", answered=[], next_question=None, trace=None)
+        assert status.is_complete is True
+        # Frozen dataclass: __post_init__ never runs again on this route.
+        object.__setattr__(status, "field_errors", {"car.property.category": "bad"})
+        assert status.blocked is True
+        assert status.is_complete is False, "is_complete must not rely on the constructor invariant"
+
+    def test_is_complete_still_checks_blocked_after_a_dataclass_replace(self) -> None:
+        import dataclasses
+
+        clean = SessionStatus(decision="undetermined", answered=[], next_question=None, trace=None)
+        blocked = dataclasses.replace(clean, field_errors={"a": "bad"})
+        assert blocked.blocked is True
+        assert blocked.is_complete is False

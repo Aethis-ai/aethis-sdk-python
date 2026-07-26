@@ -12,7 +12,12 @@ from aethis_sdk.errors import (
     AethisFieldErrors,
     AethisReplayIdentityError,
 )
-from aethis_sdk.identity import ContentIdentity, ReplayIdentity, normalise_identity_value
+from aethis_sdk.identity import (
+    ContentIdentity,
+    ReplayIdentity,
+    normalise_content_digest,
+    normalise_identity_value,
+)
 
 Decision = Literal["eligible", "not_eligible", "undetermined"]
 SectionStatus = Literal["satisfied", "not_satisfied", "pending"]
@@ -200,10 +205,15 @@ class ExplainResponse(BaseModel):
     content_digest: str | None = None
     criteria: list[ExplainCriterion] = Field(default_factory=list)
 
-    @field_validator("ruleset_version", "content_digest", mode="before")
+    @field_validator("ruleset_version", mode="before")
     @classmethod
     def _normalise(cls, value: Any) -> str | None:
         return normalise_identity_value(value)
+
+    @field_validator("content_digest", mode="before")
+    @classmethod
+    def _normalise_digest(cls, value: Any) -> str | None:
+        return normalise_content_digest(value)
 
     @property
     def content_identity(self) -> ContentIdentity | None:
@@ -301,6 +311,9 @@ class DecideResponse(BaseModel):
     rulebook_id: str | None = None
     slug: str | None = None
     ruleset_version: str | None = None
+    # Only a well-formed `sha256:<64 lowercase hex>` survives; anything else
+    # (an unresolved sentinel, `md5:...`, a truncated or non-hex value)
+    # normalises to None rather than being carried into an audit record.
     content_digest: str | None = None
     engine_version: str | None = None
     decision_id: str | None = None
@@ -320,7 +333,6 @@ class DecideResponse(BaseModel):
     @field_validator(
         "ruleset_id",
         "ruleset_version",
-        "content_digest",
         "engine_version",
         "decision_id",
         "inputs_hash",
@@ -329,6 +341,11 @@ class DecideResponse(BaseModel):
     @classmethod
     def _normalise(cls, value: Any) -> str | None:
         return normalise_identity_value(value)
+
+    @field_validator("content_digest", mode="before")
+    @classmethod
+    def _normalise_digest(cls, value: Any) -> str | None:
+        return normalise_content_digest(value)
 
     # -- contract enforcement -------------------------------------------
 
@@ -507,10 +524,15 @@ class SchemaResponse(BaseModel):
     content_digest: str | None = None
     engine_version: str | None = None
 
-    @field_validator("ruleset_version", "content_digest", mode="before")
+    @field_validator("ruleset_version", mode="before")
     @classmethod
     def _normalise(cls, value: Any) -> str | None:
         return normalise_identity_value(value)
+
+    @field_validator("content_digest", mode="before")
+    @classmethod
+    def _normalise_digest(cls, value: Any) -> str | None:
+        return normalise_content_digest(value)
 
     @property
     def content_identity(self) -> ContentIdentity | None:

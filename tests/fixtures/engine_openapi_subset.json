@@ -1,6 +1,6 @@
 {
   "provenance": {
-    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_at": "2026-07-26T06:02:32Z",
     "captured_from": "https://staging.api.aethis.ai/openapi.json",
     "engine_version": "0.48.0"
   },
@@ -28,12 +28,6 @@
             }
           ],
           "description": "Optional opaque caller metadata attached to this decision's server-side audit record (when decision logging is enabled): a flat object of string keys to string values, \u22642 KB serialized, no `$`-prefixed or dotted keys. Purely display/narrowing metadata for the caller's own records \u2014 it never affects the decision, is never an authorization key, and an invalid value is dropped with a warning rather than rejected.",
-          "examples": [
-            {
-              "application_id": "app_123",
-              "firm": "edgewater"
-            }
-          ],
           "title": "Caller Ref"
         },
         "exclude_fields": {
@@ -49,11 +43,6 @@
             }
           ],
           "description": "Field keys the engine must never propose as the next question. Use this for fields a caller has durably given up on (e.g. an applicant refused to answer a field the requisite number of times, so a conversational agent abandoned it): the excluded keys are dropped from `next_question`, `optimal_path`, and the relevance-aware `missing_fields`, so selection routes around them instead of re-proposing the cheapest-but-refused field forever. Excluding a field does not answer it \u2014 the outcome may stay `undetermined` if that field was on the only path to a decision.",
-          "examples": [
-            [
-              "app.application_date"
-            ]
-          ],
           "title": "Exclude Fields"
         },
         "field_values": {
@@ -141,9 +130,6 @@
         },
         "decision_id": {
           "description": "Unique identifier for this decision invocation, format `dec_<16 urlsafe chars>`. Fresh per call \u2014 two identical requests receive different `decision_id` values, even when the response is served from the decision cache. Use this value when referencing a specific decision in logs, bug reports, or support conversations.",
-          "examples": [
-            "dec_k3h9s2MnPq_7xZbA"
-          ],
           "title": "Decision Id",
           "type": "string"
         },
@@ -155,9 +141,6 @@
         },
         "engine_version": {
           "description": "Product-prefixed semver of the engine build that produced this decision, format `aethis-core@<semver>`. Replay-critical: the decision's outcome is only reproducible under the same engine version unless the engine guarantees backwards-compatible semantics across the versions involved.",
-          "examples": [
-            "aethis-core@0.4.3"
-          ],
           "title": "Engine Version",
           "type": "string"
         },
@@ -212,9 +195,6 @@
         },
         "inputs_hash": {
           "description": "Algorithm-prefixed content hash of the request's `field_values`, format `sha256:<64-hex>`. Computed over the RFC 8785 canonical form (sorted keys, NFC-normalised strings, canonical number formatting), so the hash is invariant under key reordering. Lets callers verify that a decision was produced from exactly the inputs they sent, without the server echoing potentially-PII values.",
-          "examples": [
-            "sha256:5f4dcc3b5aa765d61d8327deb882cf99a4e8c6efc3b81ec4af9d85b8f5cc8a4d"
-          ],
           "title": "Inputs Hash",
           "type": "string"
         },
@@ -307,9 +287,6 @@
             }
           ],
           "description": "Stable, human-readable handle for the ruleset (e.g. `aethis/uk-fsm/child-eligibility`). Set for rulesets published under a slug; null otherwise. Prefer this over `ruleset_id` for documentation, dashboards, and any reference that should survive regeneration \u2014 re-publishing under an existing slug rotates the underlying `ruleset_id` while keeping the slug stable.",
-          "examples": [
-            "aethis/uk-fsm/child-eligibility"
-          ],
           "title": "Slug"
         },
         "timing": {
@@ -815,5 +792,6 @@
       "title": "TimingInfo",
       "type": "object"
     }
-  }
+  },
+  "scrubbed": "OpenAPI `examples` are dropped \u2014 see _strip_examples()"
 }
