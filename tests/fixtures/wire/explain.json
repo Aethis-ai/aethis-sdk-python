@@ -1,0 +1,127 @@
+{
+  "body": {
+    "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
+    "criteria": [
+      {
+        "criterion_id": "period_valid",
+        "group": "policy_period",
+        "rule_text": "car.policy.period_valid equals true",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Policy period check (Cl.3)"
+      },
+      {
+        "criterion_id": "insuring_clause",
+        "group": "insuring_clause",
+        "rule_text": "( AND car.loss.is_physical equals true AND car.component.is_defective equals true)",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Physical loss and defect established (Cl.4)"
+      },
+      {
+        "criterion_id": "category_approved",
+        "group": "insured_category",
+        "rule_text": "car.property.category is one of \"permanent_works\", \"temporary_works\", \"existing_structures\", or \"materials_on_site\"",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Insured property category (Cl.5)"
+      },
+      {
+        "criterion_id": "not_rectification",
+        "group": "not_rectification",
+        "rule_text": "car.claim.is_rectification equals false",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Not a rectification claim (Cl.6)"
+      },
+      {
+        "criterion_id": "carveback_leg3",
+        "group": "carveback_qualification",
+        "rule_text": "car.damage.consequence_of_failure equals true",
+        "source_references": null,
+        "source_refs": null,
+        "title": "LEG3 carve-back: consequence of failure (Cl.7(a))"
+      },
+      {
+        "criterion_id": "carveback_de3",
+        "group": "carveback_qualification",
+        "rule_text": "car.claim.is_access_damage equals false",
+        "source_references": null,
+        "source_refs": null,
+        "title": "DE3 carve-back: not access damage (Cl.7(b))"
+      },
+      {
+        "criterion_id": "is_access_damage",
+        "group": "access_exclusion",
+        "rule_text": "car.claim.is_access_damage equals true",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Access/removal damage check (Cl.8)"
+      },
+      {
+        "criterion_id": "project_100m",
+        "group": "enhanced_cover",
+        "rule_text": "car.project.value_millions_gbp is at least 100",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Enhanced cover threshold (Cl.9(1))"
+      },
+      {
+        "criterion_id": "is_design_defect",
+        "group": "design_defect_check",
+        "rule_text": "car.defect.origin equals \"design\"",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Design defect check (Cl.9(2))"
+      },
+      {
+        "criterion_id": "project_500m",
+        "group": "pioneer_override",
+        "rule_text": "car.project.value_millions_gbp is at least 500",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Pioneer project override (Cl.9(3))"
+      },
+      {
+        "criterion_id": "is_existing_structures",
+        "group": "existing_structures_gate",
+        "rule_text": "car.property.category equals \"existing_structures\"",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Existing structures check (Cl.10)"
+      },
+      {
+        "criterion_id": "jct_contract_ok",
+        "group": "jct_compliance",
+        "rule_text": "car.contract.jct_compliant equals true",
+        "source_references": null,
+        "source_refs": null,
+        "title": "JCT-compliant contract (Cl.10)"
+      },
+      {
+        "criterion_id": "notified_in_time",
+        "group": "notification",
+        "rule_text": "car.notification.within_period equals true",
+        "source_references": null,
+        "source_refs": null,
+        "title": "Notification compliance (Cl.11)"
+      }
+    ],
+    "ruleset_id": "construction-all-risks:20260412-gold",
+    "ruleset_version": "v99",
+    "slug": "aethis/construction-all-risks"
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T06:02:32Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "GET /explain returns a FLAT `criteria` array (contrast decide_with_explanation)."
+  },
+  "request": {
+    "body": null,
+    "method": "GET",
+    "path": "/api/v1/public/rulesets/aethis/construction-all-risks/explain"
+  },
+  "status": 200
+}

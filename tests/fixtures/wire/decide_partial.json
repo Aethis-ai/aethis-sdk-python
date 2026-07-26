@@ -1,0 +1,132 @@
+{
+  "body": {
+    "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
+    "decision": "undetermined",
+    "decision_id": "dec_dqP_kjY0HDOFdy5P",
+    "decision_time": "2026-07-26T06:02:32.962893Z",
+    "engine_version": "aethis-core@0.48.0",
+    "explanation": null,
+    "field_errors": null,
+    "fields_evaluated": 11,
+    "fields_provided": 1,
+    "graph_overlay": null,
+    "inputs_hash": "sha256:f1786c4ec1ad802b56584eb047664309e86389f4d3a6cf502548edd12da31b53",
+    "missing_fields": [
+      "car.property.category",
+      "car.loss.is_physical",
+      "car.component.is_defective",
+      "car.defect.origin",
+      "car.claim.is_rectification",
+      "car.claim.is_access_damage",
+      "car.damage.consequence_of_failure",
+      "car.project.value_millions_gbp",
+      "car.notification.within_period",
+      "car.contract.jct_compliant"
+    ],
+    "next_question": {
+      "enum_values": [
+        "permanent_works",
+        "temporary_works",
+        "plant_equipment",
+        "existing_structures",
+        "materials_on_site"
+      ],
+      "field_id": "car.property.category",
+      "notes": [],
+      "question": "What category of insured property suffered loss?",
+      "sort": "Enum",
+      "weight": 1,
+      "x_ui_widget": null
+    },
+    "optimal_path": [
+      {
+        "enum_values": [
+          "permanent_works",
+          "temporary_works",
+          "plant_equipment",
+          "existing_structures",
+          "materials_on_site"
+        ],
+        "field_id": "car.property.category",
+        "notes": [],
+        "question": "What category of insured property suffered loss?",
+        "sort": "Enum",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "enum_values": null,
+        "field_id": "car.claim.is_access_damage",
+        "notes": [],
+        "question": "Was damage caused solely to gain access to or remove the defective component?",
+        "sort": "Bool",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "enum_values": null,
+        "field_id": "car.loss.is_physical",
+        "notes": [],
+        "question": "Has physical loss of or damage to insured property occurred?",
+        "sort": "Bool",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "enum_values": null,
+        "field_id": "car.component.is_defective",
+        "notes": [],
+        "question": "Has a defective component been identified?",
+        "sort": "Bool",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "enum_values": null,
+        "field_id": "car.claim.is_rectification",
+        "notes": [],
+        "question": "Is the claim for the cost of rectifying the defective component itself?",
+        "sort": "Bool",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "enum_values": null,
+        "field_id": "car.notification.within_period",
+        "notes": [],
+        "question": "Was the loss notified to underwriters within 30 days of discovery?",
+        "sort": "Bool",
+        "weight": 1,
+        "x_ui_widget": null
+      }
+    ],
+    "rulebook_id": null,
+    "ruleset_id": "construction-all-risks:20260412-gold",
+    "ruleset_version": "v99",
+    "section_results": null,
+    "slug": "aethis/construction-all-risks",
+    "timing": null,
+    "trace": null
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T06:02:33Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "Undetermined-with-next-question: no blocking errors, replay identity resolved."
+  },
+  "request": {
+    "body": {
+      "field_values": {
+        "car.policy.period_valid": true
+      },
+      "include_explanation": false,
+      "include_graph_overlay": false,
+      "include_trace": false,
+      "ruleset_id": "aethis/construction-all-risks"
+    },
+    "method": "POST",
+    "path": "/api/v1/public/decide"
+  },
+  "status": 200
+}

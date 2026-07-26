@@ -29,18 +29,46 @@ jobs:
             exit 1
           fi
 
-      - name: Build sdist and wheel
+      # SOURCE_DATE_EPOCH pins archive timestamps to the tag's commit so the
+      # wheel is byte-reproducible from the source commit alone. (The sdist is
+      # not yet — recorded honestly in the integrity tuple.)
+      - name: Build sdist and wheel reproducibly
         run: |
+          set -euo pipefail
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          export SOURCE_DATE_EPOCH
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
           python -m pip install --upgrade pip build twine
           python -m build
 
       - name: Check distribution
         run: twine check dist/*
 
+      # The tuple P10 pins the candidate on: (package, version) -> exact
+      # sdist/wheel sha256 -> source commit. Emitted before publication so the
+      # digests are the ones built from this tag's protected-main commit, and
+      # re-verified against PyPI after publication below.
+      # Written OUTSIDE dist/ so the publish step uploads distributions only.
+      - name: Emit release integrity tuple
+        run: |
+          set -euo pipefail
+          python scripts/release_integrity.py --out integrity/integrity.json --require-clean
+          {
+            echo '### Release integrity'
+            echo '```json'
+            cat integrity/integrity.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: integrity
+          path: integrity/integrity.json
 
   publish:
     needs: build
@@ -58,8 +86,34 @@ jobs:
           name: dist
           path: dist/
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: integrity
+          path: integrity/
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          path: source
+
+      # Last gate before an IRREVERSIBLE action. A PyPI upload cannot be
+      # recalled or replaced, so the bytes about to be published are re-hashed
+      # against the tuple the build job recorded — after the artefact round-trip
+      # through upload/download — while refusing is still free.
+      - name: Verify the artefacts about to be published match the recorded tuple
+        run: |
+          set -euo pipefail
+          python source/scripts/release_integrity.py \
+            --expect integrity/integrity.json --dist dist --verify-files
+          python source/scripts/release_integrity.py \
+            --expect integrity/integrity.json --require-clean
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
       - name: Verify PyPI received release
         run: |
@@ -75,6 +129,34 @@ jobs:
             sleep 10
           done
           exit 1
+
+      # Post-publish: the bytes PyPI serves must be the bytes we built and
+      # recorded, and a first-time user with nothing configured must be able to
+      # install and use them from the registry alone.
+      - name: Verify PyPI serves the exact recorded digests
+        run: |
+          set -euo pipefail
+          python source/scripts/release_integrity.py \
+            --expect integrity/integrity.json --verify-registry --timeout 60
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Hermetic registry install (no keys, empty cache, temporary HOME)
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          python source/scripts/hermetic_install_check.py \
+            --registry --version "$VERSION" --timeout 600 \
+            --json-out hermetic-registry.json
+
+      - name: Attach release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence
+          path: |
+            integrity/integrity.json
+            hermetic-registry.json
 
       - name: Check out repo at the published tag (for CHANGELOG.md)
         uses: actions/checkout@v4

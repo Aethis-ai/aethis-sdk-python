@@ -8,6 +8,9 @@ from typing import Any
 import httpx
 
 from aethis_sdk.errors import (
+    BOUNDARY_AUTHORING,
+    BOUNDARY_EVALUATION,
+    DEVELOPER_ACCESS_URL,
     AethisAPIError,
     AethisAuthError,
     AethisPermissionError,
@@ -29,6 +32,65 @@ _TYPED_4XX = {
     403: AethisPermissionError,
     429: AethisRateLimitError,
 }
+
+# The anonymous read surface. A 401/403 here is NOT the invite boundary — the
+# same call succeeds without a key on a public ruleset — so it means the
+# ruleset is not public, or the key supplied was rejected.
+#
+# `/public/decide` is deliberately absent: single-ruleset decide on a public
+# ruleset never 401s, so a refusal there is the scope-gated (rulebook /
+# key-required) path, which is the authoring boundary.
+_EVALUATION_PATH_MARKERS = ("/public/rulesets",)
+
+# Sub-paths UNDER an evaluation prefix that are nonetheless key-required, so a
+# prefix match must not claim them for the evaluation surface. Getting this
+# wrong is worse than not labelling at all: it sends a developer hunting a
+# ruleset-visibility problem for a door that will never open to them.
+#
+# `/rulesets/{id}/source` is gated behind a scope external keys are not issued,
+# so no amount of ruleset visibility will make it answer.
+_AUTHORING_SUBPATHS = ("/source",)
+
+_AUTHORING_LABEL = (
+    "Authoring is invite-only during the developer beta; evaluation "
+    "(/decide, /rulesets, /rulesets/{id}/schema, /rulesets/{id}/explain) needs no key. "
+    f"Request access at {DEVELOPER_ACCESS_URL}."
+)
+
+_EVALUATION_LABEL = (
+    "This is an evaluation endpoint: it needs no key for a public ruleset, so the refusal "
+    "is about this ruleset's visibility or the key supplied — not the invite-only authoring "
+    f"boundary. Authoring access: {DEVELOPER_ACCESS_URL}."
+)
+
+
+def access_boundary(path: str, status_code: int) -> str | None:
+    """Which access boundary a 401/403 was raised at.
+
+    ``"evaluation"`` for the anonymous decision/read surface, ``"authoring"``
+    for everything else, ``None`` for statuses that are not access failures.
+    Kept deterministic and path-based so the label never depends on the
+    engine having sent a hint.
+    """
+    if status_code not in (401, 403):
+        return None
+    # A rulebook path lives on the authoring side even though it starts with
+    # the same prefix as the anonymous ruleset catalogue.
+    if "/public/rulebooks" in path:
+        return BOUNDARY_AUTHORING
+    if any(path.endswith(subpath) for subpath in _AUTHORING_SUBPATHS):
+        return BOUNDARY_AUTHORING
+    if any(marker in path for marker in _EVALUATION_PATH_MARKERS):
+        return BOUNDARY_EVALUATION
+    return BOUNDARY_AUTHORING
+
+
+def boundary_label(boundary: str | None) -> str:
+    if boundary == BOUNDARY_AUTHORING:
+        return _AUTHORING_LABEL
+    if boundary == BOUNDARY_EVALUATION:
+        return _EVALUATION_LABEL
+    return ""
 
 
 def validate_base_url(base_url: str, is_test: bool) -> str:
@@ -78,12 +140,21 @@ def classify_response(resp: httpx.Response) -> None:
 
         reason_code, missing_permissions, hint = _extract_envelope_fields(detail)
 
-        logger.error("Aethis API %d on %s: %s", resp.status_code, resp.request.url.path, detail)
+        path = resp.request.url.path
+        logger.error("Aethis API %d on %s: %s", resp.status_code, path, detail)
         message = f"Aethis API returned {resp.status_code}"
         if reason_code:
             message = f"{message}: {reason_code}"
         elif detail:
             message = f"{message}: {detail}"
+
+        # Name the boundary in the message itself. A bare "401: missing_api_key"
+        # does not tell a first-time caller whether they hit a key they forgot
+        # to pass or a door that needs an invite.
+        boundary = access_boundary(path, resp.status_code)
+        label = boundary_label(boundary)
+        if label:
+            message = f"{message}. {label}"
 
         error_cls = _TYPED_4XX.get(resp.status_code, AethisAPIError)
         raise error_cls(
@@ -94,6 +165,7 @@ def classify_response(resp: httpx.Response) -> None:
             reason_code=reason_code,
             missing_permissions=missing_permissions,
             hint=hint,
+            boundary=boundary,
         )
 
 

@@ -21,6 +21,7 @@ from aethis_sdk._base import (
 from aethis_sdk.errors import AethisError, AethisTimeout
 from aethis_sdk.models import (
     DecideResponse,
+    ExplainResponse,
     GraphResponse,
     RateLimit,
     RulebookSchemaResponse,
@@ -123,14 +124,24 @@ def _explain_failure_payload(
 class Aethis:
     """Synchronous client for the Aethis public API.
 
+    Two access boundaries, and the client makes the difference explicit:
+
+    * **Evaluation — no key.** ``decide``, ``list_rulesets``, ``get_schema``,
+      ``get_graph`` and ``get_explanation``/``explain`` work anonymously
+      against public rulesets during the developer beta.
+    * **Authoring — invite only.** Publishing, project and rulebook endpoints,
+      ``whoami`` and ``get_source`` require an issued API key. Without one they answer 401, and the SDK
+      raises :class:`~aethis_sdk.errors.AethisAuthError` with
+      ``boundary == "authoring"`` and the access-request link in the message.
+
     Usage::
 
-        # Evaluation only (developer beta — no key required)
+        # Evaluation only — no key required
         with Aethis() as client:
             response = client.decide("aethis/construction-all-risks", {...})
             print(response.decision)
 
-        # Authoring (publishing rulesets) requires a key
+        # Authoring (publishing rulesets) — invite-only key
         with Aethis(api_key="ak_live_...") as client:
             ...
     """
@@ -275,13 +286,43 @@ class Aethis:
         resp = self._request("GET", WHOAMI_PATH)
         return resp.json()
 
+    def get_explanation(self, ruleset_id: str) -> ExplainResponse:
+        """Return the typed explanation of a ruleset's rules.
+
+        The response carries the resolved immutable identity of the content it
+        describes (:meth:`ExplainResponse.require_content_identity`) and typed
+        :class:`~aethis_sdk.models.SourceReference` citations per criterion.
+
+        Note the shape difference between the two explanation surfaces: this
+        endpoint returns a **flat** ``criteria`` list, whereas ``decide(...,
+        include_explanation=True)`` nests criteria under
+        ``explanation.groups[].criteria[]``. They share the ``SourceReference``
+        DTO, not the envelope.
+        """
+        resp = self._request("GET", _explain_path(ruleset_id))
+        return ExplainResponse.model_validate(resp.json())
+
     def explain(self, ruleset_id: str) -> dict[str, Any]:
-        """Return a human-readable explanation of a ruleset's rules."""
+        """Return a human-readable explanation of a ruleset's rules, as the raw
+        decoded JSON body.
+
+        Prefer :meth:`get_explanation`, which returns the same payload typed —
+        including resolved identity and :class:`SourceReference` objects. This
+        method stays for callers already indexing the raw dict.
+        """
         resp = self._request("GET", _explain_path(ruleset_id))
         return resp.json()
 
     def get_source(self, ruleset_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a ruleset."""
+        """Return the source-text provenance for a ruleset.
+
+        **Key-required, and not part of the no-key evaluation surface.** This
+        endpoint is gated behind a scope that is not granted to external keys,
+        so an anonymous call answers 401 regardless of the ruleset's
+        visibility. For published citations, use :meth:`get_explanation`, which
+        is anonymous on a public ruleset and returns the same
+        :class:`~aethis_sdk.models.SourceReference` DTO.
+        """
         resp = self._request("GET", _source_path(ruleset_id))
         return resp.json()
 
@@ -346,14 +387,17 @@ class Aethis:
 class AsyncAethis:
     """Asynchronous client for the Aethis public API.
 
+    Same two access boundaries as :class:`Aethis` — evaluation needs no key,
+    authoring is invite-only — and the same typed models on every path.
+
     Usage::
 
-        # Evaluation only (developer beta — no key required)
+        # Evaluation only — no key required
         async with AsyncAethis() as client:
             response = await client.decide("aethis/construction-all-risks", {...})
             print(response.decision)
 
-        # Authoring (publishing rulesets) requires a key
+        # Authoring (publishing rulesets) — invite-only key
         async with AsyncAethis(api_key="ak_live_...") as client:
             ...
     """
@@ -486,13 +530,29 @@ class AsyncAethis:
         resp = await self._request("GET", WHOAMI_PATH)
         return resp.json()
 
+    async def get_explanation(self, ruleset_id: str) -> ExplainResponse:
+        """Return the typed explanation of a ruleset's rules.
+
+        Async counterpart to :meth:`Aethis.get_explanation` — same typed
+        :class:`ExplainResponse`, same flat ``criteria`` shape, same
+        :class:`~aethis_sdk.models.SourceReference` DTO.
+        """
+        resp = await self._request("GET", _explain_path(ruleset_id))
+        return ExplainResponse.model_validate(resp.json())
+
     async def explain(self, ruleset_id: str) -> dict[str, Any]:
-        """Return a human-readable explanation of a ruleset's rules."""
+        """Return a human-readable explanation of a ruleset's rules, as the raw
+        decoded JSON body. Prefer :meth:`AsyncAethis.get_explanation`.
+        """
         resp = await self._request("GET", _explain_path(ruleset_id))
         return resp.json()
 
     async def get_source(self, ruleset_id: str) -> dict[str, Any]:
-        """Return the source-text provenance for a ruleset."""
+        """Return the source-text provenance for a ruleset.
+
+        Key-required — see :meth:`Aethis.get_source`. Prefer
+        :meth:`get_explanation` for anonymous access to published citations.
+        """
         resp = await self._request("GET", _source_path(ruleset_id))
         return resp.json()
 

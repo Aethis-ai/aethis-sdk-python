@@ -1,0 +1,376 @@
+{
+  "body": {
+    "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
+    "decision": "not_eligible",
+    "decision_id": "dec_fOsGWyj-ePFB7p8-",
+    "decision_time": "2026-07-26T06:02:33.328093Z",
+    "engine_version": "aethis-core@0.48.0",
+    "explanation": {
+      "decision": "not_eligible",
+      "groups": [
+        {
+          "criteria": [
+            {
+              "criterion_id": "period_valid",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.policy.period_valid",
+                  "value": true
+                }
+              ],
+              "title": "Policy period check (Cl.3)"
+            }
+          ],
+          "group": "policy_period",
+          "status": "satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "insuring_clause",
+              "status": "not_satisfied",
+              "title": "Physical loss and defect established (Cl.4)"
+            }
+          ],
+          "group": "insuring_clause",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "category_approved",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.property.category",
+                  "value": "permanent_works"
+                }
+              ],
+              "title": "Insured property category (Cl.5)"
+            }
+          ],
+          "group": "insured_category",
+          "status": "satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "not_rectification",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.claim.is_rectification",
+                  "value": false
+                }
+              ],
+              "title": "Not a rectification claim (Cl.6)"
+            }
+          ],
+          "group": "not_rectification",
+          "status": "satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "carveback_leg3",
+              "status": "not_satisfied",
+              "title": "LEG3 carve-back: consequence of failure (Cl.7(a))"
+            },
+            {
+              "criterion_id": "carveback_de3",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.claim.is_access_damage",
+                  "value": false
+                }
+              ],
+              "title": "DE3 carve-back: not access damage (Cl.7(b))"
+            }
+          ],
+          "group": "carveback_qualification",
+          "status": "satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "is_access_damage",
+              "status": "not_satisfied",
+              "title": "Access/removal damage check (Cl.8)"
+            }
+          ],
+          "group": "access_exclusion",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "project_100m",
+              "status": "not_satisfied",
+              "title": "Enhanced cover threshold (Cl.9(1))"
+            }
+          ],
+          "group": "enhanced_cover",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "is_design_defect",
+              "status": "not_satisfied",
+              "title": "Design defect check (Cl.9(2))"
+            }
+          ],
+          "group": "design_defect_check",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "project_500m",
+              "status": "not_satisfied",
+              "title": "Pioneer project override (Cl.9(3))"
+            }
+          ],
+          "group": "pioneer_override",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "is_existing_structures",
+              "status": "not_satisfied",
+              "title": "Existing structures check (Cl.10)"
+            }
+          ],
+          "group": "existing_structures_gate",
+          "status": "not_satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "jct_contract_ok",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.contract.jct_compliant",
+                  "value": true
+                }
+              ],
+              "title": "JCT-compliant contract (Cl.10)"
+            }
+          ],
+          "group": "jct_compliance",
+          "status": "satisfied"
+        },
+        {
+          "criteria": [
+            {
+              "criterion_id": "notified_in_time",
+              "status": "satisfied",
+              "supporting_facts": [
+                {
+                  "field": "car.notification.within_period",
+                  "value": true
+                }
+              ],
+              "title": "Notification compliance (Cl.11)"
+            }
+          ],
+          "group": "notification",
+          "status": "satisfied"
+        }
+      ],
+      "unused_facts": []
+    },
+    "field_errors": null,
+    "fields_evaluated": 11,
+    "fields_provided": 11,
+    "graph_overlay": null,
+    "inputs_hash": "sha256:6c5c0be4142d1b97085e4170b9bd68cab53939816047fcfe6f1999ca47acd7dc",
+    "missing_fields": null,
+    "next_question": null,
+    "optimal_path": null,
+    "rulebook_id": null,
+    "ruleset_id": "construction-all-risks:20260412-gold",
+    "ruleset_version": "v99",
+    "section_results": null,
+    "slug": "aethis/construction-all-risks",
+    "timing": null,
+    "trace": {
+      "answered": [
+        "car.policy.period_valid",
+        "car.property.category",
+        "car.loss.is_physical",
+        "car.component.is_defective",
+        "car.defect.origin",
+        "car.claim.is_rectification",
+        "car.claim.is_access_damage",
+        "car.damage.consequence_of_failure",
+        "car.project.value_millions_gbp",
+        "car.notification.within_period",
+        "car.contract.jct_compliant"
+      ],
+      "failure_reasons": [
+        [
+          "insuring_clause",
+          [
+            {
+              "field": "car.component.is_defective",
+              "raw": "answer_car.component.is_defective_False",
+              "type": "answer",
+              "value": "False"
+            },
+            {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.component.is_defective == True",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.component.is_defective == True",
+              "type": "condition"
+            }
+          ]
+        ],
+        [
+          "carveback_leg3",
+          [
+            {
+              "field": "car.damage.consequence_of_failure",
+              "raw": "answer_car.damage.consequence_of_failure_False",
+              "type": "answer",
+              "value": "False"
+            },
+            {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.damage.consequence_of_failure ==\nTrue",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.damage.consequence_of_failure ==\nTrue",
+              "type": "condition"
+            }
+          ]
+        ],
+        [
+          "is_access_damage",
+          [
+            {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.claim.is_access_damage == True",
+              "type": "condition"
+            },
+            {
+              "field": "car.claim.is_access_damage",
+              "raw": "answer_car.claim.is_access_damage_False",
+              "type": "answer",
+              "value": "False"
+            }
+          ]
+        ],
+        [
+          "project_100m",
+          [
+            {
+              "field": "car.project.value_millions_gbp",
+              "raw": "answer_car.project.value_millions_gbp_5",
+              "type": "answer",
+              "value": "5"
+            },
+            {
+              "expression": "100 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "raw": "cond_100 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "type": "condition"
+            }
+          ]
+        ],
+        [
+          "is_design_defect",
+          [
+            {
+              "field": "car.defect.origin",
+              "raw": "answer_car.defect.origin_none",
+              "type": "answer",
+              "value": "none"
+            },
+            {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.defect.origin == design",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.defect.origin == design",
+              "type": "condition"
+            }
+          ]
+        ],
+        [
+          "project_500m",
+          [
+            {
+              "expression": "500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "raw": "cond_500 <= CAR_DEFECT_EXCLUSION:1:car.project.value_millions_gbp",
+              "type": "condition"
+            },
+            {
+              "field": "car.project.value_millions_gbp",
+              "raw": "answer_car.project.value_millions_gbp_5",
+              "type": "answer",
+              "value": "5"
+            }
+          ]
+        ],
+        [
+          "is_existing_structures",
+          [
+            {
+              "field": "car.property.category_permanent",
+              "raw": "answer_car.property.category_permanent_works",
+              "type": "answer",
+              "value": "works"
+            },
+            {
+              "expression": "CAR_DEFECT_EXCLUSION:1:car.property.category ==\nexisting_structures",
+              "raw": "cond_CAR_DEFECT_EXCLUSION:1:car.property.category ==\nexisting_structures",
+              "type": "condition"
+            }
+          ]
+        ]
+      ],
+      "group_statuses": {
+        "access_exclusion": "not_satisfied",
+        "carveback_qualification": "satisfied",
+        "design_defect_check": "not_satisfied",
+        "enhanced_cover": "not_satisfied",
+        "existing_structures_gate": "not_satisfied",
+        "insured_category": "satisfied",
+        "insuring_clause": "not_satisfied",
+        "jct_compliance": "satisfied",
+        "not_rectification": "satisfied",
+        "notification": "satisfied",
+        "pioneer_override": "not_satisfied",
+        "policy_period": "satisfied"
+      },
+      "status": "ineligible"
+    }
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T06:02:33Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "POST /decide nests the explanation under explanation.groups[].criteria[]."
+  },
+  "request": {
+    "body": {
+      "field_values": {
+        "car.claim.is_access_damage": false,
+        "car.claim.is_rectification": false,
+        "car.component.is_defective": false,
+        "car.contract.jct_compliant": true,
+        "car.damage.consequence_of_failure": false,
+        "car.defect.origin": "none",
+        "car.loss.is_physical": true,
+        "car.notification.within_period": true,
+        "car.policy.period_valid": true,
+        "car.project.value_millions_gbp": 5,
+        "car.property.category": "permanent_works"
+      },
+      "include_explanation": true,
+      "include_trace": true,
+      "ruleset_id": "aethis/construction-all-risks"
+    },
+    "method": "POST",
+    "path": "/api/v1/public/decide"
+  },
+  "status": 200
+}

@@ -1,0 +1,28 @@
+{
+  "provenance": {
+    "engine_source_commit": "8df50b964b1ed271dfa278b2cf0fb8f37910302a",
+    "generated_at": "2026-07-26T04:36:26Z",
+    "generated_by": "aethis_core.public.models.source_reference.SourceReference",
+    "why_not_a_wire_capture": "No published showcase ruleset carries resolved source references yet; this instance is minted by the engine's own model + deep-link builder and re-validated against the captured OpenAPI SourceReference schema."
+  },
+  "reference": {
+    "authority": "UK Statutory Instruments",
+    "content_digest": "sha256:2195cde6dd1031e55d491b195b10d19f35660865e708dafc63cc439183df1350",
+    "deep_link": "https://www.legislation.gov.uk/uksi/2015/51/regulation/4/made#:~:text=Client%20duties%20in%20relation%20to%20managing%20projects-,A%20client%20must%20make%20suitable%20arrangements%20for%20managing%20a%20project.,-Those%20arrangements%20must%20include",
+    "licence": "OGL-UK-3.0",
+    "locator": "regulation 4(1)",
+    "media_type": "html",
+    "quote": {
+      "exact": "A client must make suitable arrangements for managing a project.",
+      "prefix": "Client duties in relation to managing projects",
+      "suffix": "Those arrangements must include"
+    },
+    "schema_version": 1,
+    "source_date": "2015-02-06",
+    "source_id": "CDM2015#reg4(1)",
+    "source_version": "2015 No. 51",
+    "title": "The Construction (Design and Management) Regulations 2015",
+    "url": "https://www.legislation.gov.uk/uksi/2015/51/regulation/4/made",
+    "verified_at": "2026-07-26T00:00:00Z"
+  }
+}
