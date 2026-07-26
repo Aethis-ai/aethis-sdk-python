@@ -1,0 +1,819 @@
+{
+  "provenance": {
+    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_from": "https://staging.api.aethis.ai/openapi.json",
+    "engine_version": "0.48.0"
+  },
+  "roots": [
+    "DecideRequest",
+    "DecideResponse",
+    "ExplainRulesetResponse",
+    "ExplainCriterion",
+    "SourceReference",
+    "SourceQuote",
+    "NextQuestion"
+  ],
+  "schemas": {
+    "DecideRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "caller_ref": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional opaque caller metadata attached to this decision's server-side audit record (when decision logging is enabled): a flat object of string keys to string values, \u22642 KB serialized, no `$`-prefixed or dotted keys. Purely display/narrowing metadata for the caller's own records \u2014 it never affects the decision, is never an authorization key, and an invalid value is dropped with a warning rather than rejected.",
+          "examples": [
+            {
+              "application_id": "app_123",
+              "firm": "edgewater"
+            }
+          ],
+          "title": "Caller Ref"
+        },
+        "exclude_fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Field keys the engine must never propose as the next question. Use this for fields a caller has durably given up on (e.g. an applicant refused to answer a field the requisite number of times, so a conversational agent abandoned it): the excluded keys are dropped from `next_question`, `optimal_path`, and the relevance-aware `missing_fields`, so selection routes around them instead of re-proposing the cheapest-but-refused field forever. Excluding a field does not answer it \u2014 the outcome may stay `undetermined` if that field was on the only path to a decision.",
+          "examples": [
+            [
+              "app.application_date"
+            ]
+          ],
+          "title": "Exclude Fields"
+        },
+        "field_values": {
+          "additionalProperties": true,
+          "title": "Field Values",
+          "type": "object"
+        },
+        "include_explanation": {
+          "default": false,
+          "title": "Include Explanation",
+          "type": "boolean"
+        },
+        "include_graph_overlay": {
+          "default": false,
+          "title": "Include Graph Overlay",
+          "type": "boolean"
+        },
+        "include_timing": {
+          "default": false,
+          "title": "Include Timing",
+          "type": "boolean"
+        },
+        "include_trace": {
+          "default": false,
+          "title": "Include Trace",
+          "type": "boolean"
+        },
+        "no_cache": {
+          "default": false,
+          "title": "No Cache",
+          "type": "boolean"
+        },
+        "rulebook_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rulebook Id"
+        },
+        "ruleset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ruleset Id"
+        }
+      },
+      "required": [
+        "field_values"
+      ],
+      "title": "DecideRequest",
+      "type": "object"
+    },
+    "DecideResponse": {
+      "description": "Outcome of a single `/decide` invocation, plus a reproducibility envelope.\n\n## Reproducibility contract\n\nThe envelope is designed to let any caller \u2014 aethis-cli, aethis-mcp, a\nthird-party integration, or an auditor \u2014 prove which inputs and which rule\nartefact produced a given decision, without the server echoing the inputs\nback in the response.\n\n**Replay-critical fields** (retain these with the caller's inputs to\nreproduce a decision byte-for-byte on a re-run against the same engine\nbuild and rule artefact):\n\n- `decision_id` \u2014 opaque per-invocation audit handle.\n- `inputs_hash` \u2014 `sha256:<hex>` content hash over the RFC 8785 canonical\n  form of the request's `field_values`. Invariant under key reordering.\n- `engine_version` \u2014 product-prefixed semver of the engine build that\n  produced the decision (`aethis-core@<semver>`).\n- `ruleset_id` + `ruleset_version` + `content_digest` (ruleset calls)\n  **or** `rulebook_id` (rulebook calls) \u2014 identifies the rule artefact.\n  For a published leaf ruleset all three are always resolved from the\n  stored publication (never the caller's slug, never `\"unknown\"`), on\n  both cold and warm cache paths. Richer rulebook pinning with\n  `resolved_ruleset_versions` is tracked separately (aethis-core#39);\n  until it lands, rulebook replays assume the rulebook's `pin_mode`\n  composition has not drifted.\n\n**Blocking-error contract** (issue #330, step 7; see\n`aethis_core/public/contracts/decision_truth_table.py`): every\n`field_errors` entry is blocking, and a non-empty `field_errors` forces\n`decision == \"undetermined\"` \u2014 this response never reports `eligible` or\n`not_eligible` beside blocking input errors. Consumers must read\n`field_errors` (the structured error channel) rather than inferring\nsuccess from present happy-path fields.\n\n**Informational fields** (not part of the replay contract; safe to ignore\nwhen replaying):\n\n- `decision_time` \u2014 server UTC timestamp. Required context for any rule\n  that references wall-clock time; otherwise informational.\n- `timing`, `next_question`, `optimal_path`, `trace`, `explanation`,\n  `field_errors`, `section_results`, `missing_fields`.\n\nServer-side audit persistence (storing the envelope plus inputs keyed by\n`decision_id` for later lookup) is tracked separately; until it lands,\nreliable replay requires the caller to retain the original inputs.",
+      "properties": {
+        "content_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`sha256:<hex>` digest of the published rule content that produced this decision (replay-critical, ruleset requests only). A republish always changes this value, even when the version label or ruleset_id is reused.",
+          "title": "Content Digest"
+        },
+        "decision": {
+          "enum": [
+            "eligible",
+            "not_eligible",
+            "undetermined"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "decision_id": {
+          "description": "Unique identifier for this decision invocation, format `dec_<16 urlsafe chars>`. Fresh per call \u2014 two identical requests receive different `decision_id` values, even when the response is served from the decision cache. Use this value when referencing a specific decision in logs, bug reports, or support conversations.",
+          "examples": [
+            "dec_k3h9s2MnPq_7xZbA"
+          ],
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "decision_time": {
+          "description": "Server UTC timestamp at which this decision was made, ISO-8601 with `Z` suffix. Captured once per invocation \u2014 identical for cache-hit and cache-miss paths within the same request. Informational for time-independent rules; required context for any rule that references wall-clock time.",
+          "format": "date-time",
+          "title": "Decision Time",
+          "type": "string"
+        },
+        "engine_version": {
+          "description": "Product-prefixed semver of the engine build that produced this decision, format `aethis-core@<semver>`. Replay-critical: the decision's outcome is only reproducible under the same engine version unless the engine guarantees backwards-compatible semantics across the versions involved.",
+          "examples": [
+            "aethis-core@0.4.3"
+          ],
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Layered decision explanation, populated when `include_explanation=true` and the request used `ruleset_id`. Shape: `{decision, decision_path?, groups: [{group, status, criteria: [{criterion_id, title, status, supporting_facts?, source_refs?}]}], unused_facts: [field_name, ...]}`. `supporting_facts` lists the answers that proved each satisfied criterion (Or branches report only the satisfied disjunct). `unused_facts` lists provided answers that no satisfied criterion referenced \u2014 useful for catching field-name typos.",
+          "title": "Explanation"
+        },
+        "field_errors": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Blocking input errors, keyed by field id (unknown field key, value that fails the field's type, or an evaluation-time conversion failure). Non-empty field_errors ALWAYS accompanies decision == 'undetermined': the engine never returns a positive/negative terminal verdict computed from a partial input set the caller did not knowingly send.",
+          "title": "Field Errors"
+        },
+        "fields_evaluated": {
+          "title": "Fields Evaluated",
+          "type": "integer"
+        },
+        "fields_provided": {
+          "title": "Fields Provided",
+          "type": "integer"
+        },
+        "graph_overlay": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Dependency graph (field -> criterion -> group -> outcome) with each criterion node's `overlay` slot stamped from this decision, populated only when `include_graph_overlay=true`. Same shape as the `/rulesets/{id}/graph` (and rulebook `/graph`) response `graph` object: `{nodes, edges, sections, stats}`. Each criterion node carries `overlay: {status: satisfied|not_satisfied|pending, supporting_facts?: [...]}`. Lets a caller render a 'you are here' map of which criteria fired for these inputs. Off by default; absent fields keep the response byte-identical to a call without the flag.",
+          "title": "Graph Overlay"
+        },
+        "inputs_hash": {
+          "description": "Algorithm-prefixed content hash of the request's `field_values`, format `sha256:<64-hex>`. Computed over the RFC 8785 canonical form (sorted keys, NFC-normalised strings, canonical number formatting), so the hash is invariant under key reordering. Lets callers verify that a decision was produced from exactly the inputs they sent, without the server echoing potentially-PII values.",
+          "examples": [
+            "sha256:5f4dcc3b5aa765d61d8327deb882cf99a4e8c6efc3b81ec4af9d85b8f5cc8a4d"
+          ],
+          "title": "Inputs Hash",
+          "type": "string"
+        },
+        "missing_fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Fields"
+        },
+        "next_question": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/NextQuestion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "optimal_path": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/components/schemas/NextQuestion"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Optimal Path"
+        },
+        "rulebook_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rulebook Id"
+        },
+        "ruleset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ruleset Id"
+        },
+        "ruleset_version": {
+          "description": "Published version label of the decided ruleset (e.g. `v3`). Always resolved from the stored publication for a leaf ruleset \u2014 never `unknown` for a published leaf. Rulebook responses report `unknown` until resolved composition identity lands (aethis-core#39).",
+          "title": "Ruleset Version",
+          "type": "string"
+        },
+        "section_results": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/components/schemas/SectionResult"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Section Results"
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stable, human-readable handle for the ruleset (e.g. `aethis/uk-fsm/child-eligibility`). Set for rulesets published under a slug; null otherwise. Prefer this over `ruleset_id` for documentation, dashboards, and any reference that should survive regeneration \u2014 re-publishing under an existing slug rotates the underlying `ruleset_id` while keeping the slug stable.",
+          "examples": [
+            "aethis/uk-fsm/child-eligibility"
+          ],
+          "title": "Slug"
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/TimingInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trace": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Trace"
+        }
+      },
+      "required": [
+        "decision_id",
+        "inputs_hash",
+        "decision_time",
+        "engine_version",
+        "decision",
+        "ruleset_version",
+        "fields_evaluated",
+        "fields_provided"
+      ],
+      "title": "DecideResponse",
+      "type": "object"
+    },
+    "ExplainCriterion": {
+      "additionalProperties": true,
+      "description": "One criterion in the ruleset explanation. `source_references` carries\nthe publish-validated public citation contract \u2014 the identical\n`SourceReference` DTO POST /decide serves inside\n`explanation.groups[].criteria[]` when `include_explanation=true`.",
+      "properties": {
+        "criterion_id": {
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Group"
+        },
+        "rule_text": {
+          "title": "Rule Text",
+          "type": "string"
+        },
+        "source_references": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/components/schemas/SourceReference"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Publish-resolved, validated source references for this criterion. Present only on rulesets published under the fail-closed public citation contract.",
+          "title": "Source References"
+        },
+        "source_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opaque authoring citation keys (legacy surface; kept for back-compat).",
+          "title": "Source Refs"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "rule_text"
+      ],
+      "title": "ExplainCriterion",
+      "type": "object"
+    },
+    "ExplainRulesetResponse": {
+      "properties": {
+        "content_digest": {
+          "description": "sha256:<hex> digest of the published rule content.",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/components/schemas/ExplainCriterion"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "ruleset_id": {
+          "description": "Resolved immutable ruleset ID (never the caller's slug).",
+          "title": "Ruleset Id",
+          "type": "string"
+        },
+        "ruleset_version": {
+          "description": "Published version label of this ruleset.",
+          "title": "Ruleset Version",
+          "type": "string"
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Slug"
+        }
+      },
+      "required": [
+        "ruleset_id",
+        "ruleset_version",
+        "content_digest",
+        "criteria"
+      ],
+      "title": "ExplainRulesetResponse",
+      "type": "object"
+    },
+    "FieldNoteOut": {
+      "description": "Public-API shape for a single structured note attached to a field.\n\nMirrors the internal `FieldNote` (`storage.models.schemas.FieldNote` /\n`elig.eligibility_navigator.FieldNote`). The `metadata` dict is left\nloosely-typed because callers attach domain-specific tags\n(`type`, `section`, `warning`, ...).",
+      "properties": {
+        "metadata": {
+          "additionalProperties": true,
+          "description": "Structured tags. Conventionally includes `type` (`why` | `legal_background`), `section`, and optionally `warning: true` for rarely-granted routes.",
+          "title": "Metadata",
+          "type": "object"
+        },
+        "note_text": {
+          "description": "Note body. Plain text; may span multiple paragraphs.",
+          "title": "Note Text",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "description": "Citation for the note \u2014 typically a Home Office guidance page title, a statute reference, or a URL drawn from the ruleset's provenance pack.",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "note_text"
+      ],
+      "title": "FieldNoteOut",
+      "type": "object"
+    },
+    "NextQuestion": {
+      "properties": {
+        "enum_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Closed set of allowed values when `sort` is `Enum`; `None` for every other sort (and when the type could not be resolved). Mirrors `/schema`'s `FieldInfo.enum_values`.",
+          "title": "Enum Values"
+        },
+        "field_id": {
+          "title": "Field Id",
+          "type": "string"
+        },
+        "notes": {
+          "description": "Structured guidance attached to the field being asked. Surfaces the same notes the navigator appends to its internal extraction prompts so callers can render rationale and legal background to end users alongside the question.",
+          "items": {
+            "$ref": "#/components/schemas/FieldNoteOut"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/Sort"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Answer type of the field being asked (`Int` / `Bool` / `String` / `Enum` / `Date` / `Duration`), when known. Lets callers render a typed input affordance (yes/no chips, a date picker, an option list) without a second `/schema` round-trip. `None` when the type could not be resolved for this field. Serialised as the sort's string value, matching `/schema`'s `FieldInfo.sort`."
+        },
+        "weight": {
+          "title": "Weight",
+          "type": "integer"
+        },
+        "x_ui_widget": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Authoring override for the UI-affordance layer, carried through from the field's `FieldDefinition.x_ui_widget`. Currently only `free_text` is recognised: it tells the caller to suppress the schema-derived structured-answer affordance (chips / select / date-picker) for this field and render a plain text composer, even though `sort` is set. `None` when no override is authored. Mirrors `/schema`'s `FieldInfo.x_ui_widget`.",
+          "title": "X Ui Widget"
+        }
+      },
+      "required": [
+        "field_id",
+        "question",
+        "weight"
+      ],
+      "title": "NextQuestion",
+      "type": "object"
+    },
+    "SectionResult": {
+      "properties": {
+        "ruleset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ruleset Id"
+        },
+        "section_id": {
+          "title": "Section Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "satisfied",
+            "not_satisfied",
+            "pending"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "status"
+      ],
+      "title": "SectionResult",
+      "type": "object"
+    },
+    "Sort": {
+      "description": "Primitive sorts supported by the rule engine.\n\nMaps to the constraint solver's primitive sorts. Dates and durations are represented as Int (days).",
+      "enum": [
+        "Int",
+        "Real",
+        "Bool",
+        "String",
+        "Enum",
+        "Date",
+        "Duration"
+      ],
+      "title": "Sort",
+      "type": "string"
+    },
+    "SourceQuote": {
+      "description": "The verbatim text a reference cites, with optional locating context.\n\n``exact`` MUST occur verbatim in the fetched source whose\n``content_digest`` is recorded on the parent reference \u2014 publish\nvalidation enforces this and fails closed on a non-occurring quote.\nModelled on the W3C Web Annotation TextQuoteSelector.",
+      "properties": {
+        "exact": {
+          "description": "Verbatim quoted text from the cited source. Never a summary or paraphrase \u2014 publish validation asserts this text occurs in the fetched source verbatim after whitespace normalisation (HTML is tag-stripped; PDF is checked against extracted page text). No stemming, case folding or fuzzy matching.",
+          "minLength": 1,
+          "title": "Exact",
+          "type": "string"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional short verbatim context immediately before the quote.",
+          "title": "Prefix"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional short verbatim context immediately after the quote.",
+          "title": "Suffix"
+        }
+      },
+      "required": [
+        "exact"
+      ],
+      "title": "SourceQuote",
+      "type": "object"
+    },
+    "SourceReference": {
+      "description": "One publish-validated citation binding a criterion to its authority.",
+      "properties": {
+        "authority": {
+          "description": "Publisher / issuing authority of the cited document.",
+          "minLength": 1,
+          "title": "Authority",
+          "type": "string"
+        },
+        "content_digest": {
+          "description": "sha256:<hex> digest of the exact bytes fetched from `url` at publish-time verification.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "deep_link": {
+          "description": "Self-locating link derived from url + quote: a percent-encoded `#:~:text=` text fragment for HTML/text sources, `#page=N` for PDF sources (N from the locator when it names a page).",
+          "title": "Deep Link",
+          "type": "string"
+        },
+        "licence": {
+          "description": "Licence under which the cited text is reproduced (e.g. 'OGL-UK-3.0'). Publishing an unlicensed reference fails closed.",
+          "minLength": 1,
+          "title": "Licence",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Section/paragraph/page locator within the document, when available.",
+          "title": "Locator"
+        },
+        "media_type": {
+          "default": "html",
+          "description": "Media type of the fetched source; selects the deep-link form.",
+          "enum": [
+            "html",
+            "pdf",
+            "text"
+          ],
+          "title": "Media Type",
+          "type": "string"
+        },
+        "quote": {
+          "$ref": "#/components/schemas/SourceQuote",
+          "description": "The verbatim cited text (never a summary), verified against the digested source."
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "description": "Wire-schema version of this reference. Additive evolution only: v2 will add an uploaded-source referent (aethis-core#331) without breaking v1 consumers.",
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Publication/revision date of the cited document (ISO 8601), when available.",
+          "title": "Source Date"
+        },
+        "source_id": {
+          "description": "Stable opaque identifier of this reference within its published ruleset version (the authoring citation key, e.g. 'BNA1981#Schedule1/P1.1').",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Version label of the cited document, when the authority publishes one.",
+          "title": "Source Version"
+        },
+        "title": {
+          "description": "Human-meaningful title of the cited document.",
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "description": "HTTPS URL of the cited document, validated at publish time (HTTPS only; no credentials, IP literals or private/reserved destinations; bounded redirects/size/time).",
+          "title": "Url",
+          "type": "string"
+        },
+        "verified_at": {
+          "description": "UTC time the target was fetched, digested and the quote verified.",
+          "format": "date-time",
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "title",
+        "authority",
+        "url",
+        "content_digest",
+        "licence",
+        "verified_at",
+        "quote",
+        "deep_link"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "TimingInfo": {
+      "properties": {
+        "cache_hit": {
+          "default": false,
+          "title": "Cache Hit",
+          "type": "boolean"
+        },
+        "compilation_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Compilation Ms"
+        },
+        "evaluation_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Evaluation Ms"
+        },
+        "ruleset_cache_hit": {
+          "default": false,
+          "title": "Ruleset Cache Hit",
+          "type": "boolean"
+        },
+        "total_ms": {
+          "title": "Total Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "total_ms"
+      ],
+      "title": "TimingInfo",
+      "type": "object"
+    }
+  }
+}

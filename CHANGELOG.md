@@ -6,6 +6,43 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.11.0 (2026-07-26)
+
+Makes the SDK a safe, immutable release component for the public developer
+release (epic aethis-workspace#643, P9 / aethis-sdk-python#29). Three classes of
+"looks fine, isn't" are closed at the type level, and the release itself now
+carries verifiable integrity evidence.
+
+### Replay identity: absence no longer looks like a version
+
+- **breaking (behavioural): `DecideResponse.ruleset_version` is `str | None` and no longer defaults to `"unknown"`.** The engine reports an unresolved version as the literal string `"unknown"` (a rulebook call, or an artefact published before immutable versions); the SDK also *defaulted* to that string, so a caller writing an audit record got a plausible-looking version whether or not anything had been resolved. Every unresolved sentinel (`"unknown"`, `""`, `"none"`, `"null"`, `"n/a"`, case-insensitive) now normalises to `None` on `ruleset_version`, `content_digest`, `ruleset_id`, `engine_version`, `decision_id` and `inputs_hash`. Code reading `response.ruleset_version` gets `None` where it previously got `"unknown"`.
+- **feat: `content_digest` on `DecideResponse`, and `ruleset_version` + `content_digest` on `SchemaResponse`.** The resolved immutable identity aethis-core stamps on `/decide`, `/schema` and `/explain` (aethis-core#330).
+- **feat: `ReplayIdentity` / `ContentIdentity` + `require_replay_identity()` / `require_content_identity()`.** These return a complete identity or raise `AethisReplayIdentityError` naming exactly which parts are unresolved — so recording an incomplete audit reference is an explicit act, not a default. The soft accessors `replay_identity` / `content_identity` return `None` instead of raising.
+
+### Blocking errors cannot become a completed or positive result
+
+- **feat: `DecideResponse.blocking_errors` (always a mapping), `.has_blocking_errors`, `.is_terminal`, `.raise_for_blocking_errors()`.** The engine suppresses `next_question` while blocking `field_errors` are outstanding, so a blocked response is byte-shaped like a finished one on that field. `is_terminal` is the honest check.
+- **feat: the parse boundary refuses a self-contradicting envelope.** A 2xx reporting `eligible`/`not_eligible` beside non-empty `field_errors` — or an embedded copy in `explanation.decision` / `trace.status` that contradicts the headline — raises the new `AethisContractViolation` rather than becoming an object a caller acts on. Enforced in the model, so it holds on the sync client, the async client and the sessions alike.
+- **feat: `SessionStatus` gains `field_errors`, `replay_identity`, `.blocked`, `.is_complete` and `.raise_if_blocked()`,** with a constructor invariant that makes a positive-and-blocked status unconstructible. Sessions gain `blocking_errors()` and `is_complete()` (sync and async).
+- **feat: new `AethisFieldErrors` exception** carrying `.field_errors`, raised by the opt-in `raise_for_blocking_errors()` / `raise_if_blocked()` guards.
+
+### Typed source provenance
+
+- **feat: `SourceReference` + `SourceQuote` models** — the publish-validated citation contract (`source_id`, `title`, `authority`, HTTPS `url`, `locator`, `source_version`, `source_date`, `content_digest`, `licence`, `verified_at`, verbatim `quote`, self-locating `deep_link`, `schema_version`), returned identically by both explanation surfaces. Unknown fields are preserved so the additive `schema_version` evolution cannot break a pinned consumer.
+- **feat: `get_explanation(ruleset_id)` (sync + async) returning the typed `ExplainResponse`,** with resolved identity and typed references per criterion. `explain()` still returns the raw dict for existing callers.
+- **feat: `DecideResponse.decision_explanation` + `.source_references()`** parse the `/decide` explanation into `DecisionExplanation`. Note the two surfaces differ: `/explain` returns a **flat** `criteria` array, `/decide` nests criteria under `explanation.groups[].criteria[]`. They share the DTO, not the envelope — the SDK models them separately and the tests assert the distinction.
+
+### The two access boundaries are labelled
+
+- **feat: `AethisError.boundary`** is `"evaluation"` or `"authoring"` on a 401/403, and the exception message now names which door was closed — no-key evaluation (`/decide`, `/rulesets`, `/schema`, `/explain`) versus invite-only authoring — plus the access-request URL. README and examples carry the same labelling before either path.
+
+### Release integrity and hermetic install evidence
+
+- **feat: `scripts/release_integrity.py`** emits the tuple a release candidate is pinned on — `(package, version)` → exact sdist/wheel sha256 → source commit/branch/clean-state — and re-verifies it against local files or against what PyPI actually serves. Wired into `publish.yml` before publication (`--require-clean`) and after (`--verify-registry`).
+- **feat: `scripts/hermetic_install_check.py`** installs the exact artefact into a throwaway world — temporary `HOME`/`XDG_*`/cache, every `AETHIS_*` and provider key unset, empty cache on first install, no alternate index — then runs an offline smoke that parses captured engine payloads through the installed package, and a **poisoned-artefact negative control** that must fail. New `hermetic` CI job across ubuntu/macos × Python 3.11/3.12/3.13.
+- **feat: `scripts/capture_engine_fixtures.py`** records the fixtures under `tests/fixtures/` from a live engine (anonymously, against a public showcase ruleset), including the engine's own JSON Schemas, so the mocked suite is tested against real wire payloads rather than hand-written approximations.
+- **chore: Python 3.13 added to the classifiers and the CI matrix.** `jsonschema` added to the `dev` extra (test-only; the shipped package is still just `httpx` + `pydantic`).
+
 ## 0.10.0 (2026-07-21)
 
 - **feat: `usage()` + `client.rate_limit` — rate-limit budget + headers.** New `Aethis.usage()` / `AsyncAethis.usage()` return a `UsageResponse` (per-operation-class `used`/`limit`/`remaining`/`reset` over the rolling 24h window + a 7/30-day rolling summary) from `GET /api/v1/public/usage`. Every response's `X-RateLimit-*` headers are now parsed onto `client.rate_limit` (a `RateLimit` model: `operation_class`/`limit`/`remaining`/`reset`), so a consuming app can read its remaining budget — especially `generate` (the scarce LLM class) — without a separate call. New models `UsageResponse`, `ClassUsage`, `RollingUsage`, `RateLimit`, all exported. (epic aethis-workspace#552)

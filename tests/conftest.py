@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -31,6 +33,9 @@ def make_decide_response(**overrides: Any) -> dict[str, Any]:
         "rulebook_id": None,
         "slug": None,
         "ruleset_version": "v1",
+        # Resolved immutable identity — the engine stamps this on every
+        # published-leaf decision (aethis-core#330 / P2).
+        "content_digest": "sha256:" + "ab" * 32,
         "engine_version": "aethis-core@0.10.0",
         "decision_id": "dec_TestFixtureId000001",
         "inputs_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -80,9 +85,12 @@ def make_schema_response(**overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "ruleset_id": "test_ruleset:v1",
         # ``name`` / ``slug`` are returned by the deployed engine's /schema;
-        # carried here so the parity check sees a superset of reality.
+        # carried here so the parity check sees a superset of reality. So are
+        # the resolved-identity pair, added by aethis-core#330 (P2).
         "name": "Test Ruleset",
         "slug": "aethis/test-ruleset",
+        "ruleset_version": "v1",
+        "content_digest": "sha256:" + "cd" * 32,
         "fields": [
             _schema_field("age", "integer", "Age of applicant", "How old are you?"),
             _schema_field("has_passport", "boolean", "Has valid passport", "Do you have a valid passport?"),
@@ -120,3 +128,42 @@ def sync_mock_transport(handler: Any) -> httpx.MockTransport:
 
 def async_mock_transport(handler: Any) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
+
+
+# ---------------------------------------------------------------------------
+# Captured engine payloads (tests/fixtures/) — see
+# scripts/capture_engine_fixtures.py for how they are recorded and refreshed.
+# ---------------------------------------------------------------------------
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+def load_fixture(name: str) -> dict[str, Any]:
+    """Load a captured fixture document (provenance + payload) by name."""
+    path = FIXTURES_DIR / f"{name}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def wire_body(name: str) -> Any:
+    """The response body of a captured wire exchange, exactly as the engine sent it."""
+    return load_fixture(f"wire/{name}")["body"]
+
+
+def wire_record(name: str) -> dict[str, Any]:
+    """The whole captured exchange — request, status, body, provenance."""
+    return load_fixture(f"wire/{name}")
+
+
+def engine_schema(name: str) -> dict[str, Any]:
+    """One component JSON Schema captured from the engine's own /openapi.json."""
+    return load_fixture("engine_openapi_subset")["schemas"][name]
+
+
+def engine_schema_registry() -> dict[str, Any]:
+    """Every captured component schema, for ``$ref`` resolution."""
+    return load_fixture("engine_openapi_subset")["schemas"]
+
+
+def source_reference_exemplar() -> dict[str, Any]:
+    """A ``SourceReference`` instance minted by the engine's own model class."""
+    return load_fixture("source_reference_exemplar")["reference"]

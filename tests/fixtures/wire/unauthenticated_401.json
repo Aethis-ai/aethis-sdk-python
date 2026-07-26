@@ -1,0 +1,22 @@
+{
+  "body": {
+    "detail": {
+      "error": "unauthorized",
+      "message": "X-API-Key header is required for this endpoint.",
+      "reason_code": "missing_api_key"
+    }
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "Structured 401 envelope on an authoring-boundary endpoint called with no key."
+  },
+  "request": {
+    "body": null,
+    "method": "GET",
+    "path": "/api/v1/public/me"
+  },
+  "status": 401
+}

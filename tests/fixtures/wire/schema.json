@@ -1,0 +1,146 @@
+{
+  "body": {
+    "content_digest": "sha256:bb6faf75f53ef61b4252cffd0fae1b1c112e02c7f1c0bf4d2d46866861198453",
+    "fields": [
+      {
+        "description": "Did the loss occur within the policy period?",
+        "enum_values": null,
+        "field_id": "car.policy.period_valid",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Did the loss occur within the policy period?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "What category of insured property suffered loss?",
+        "enum_values": [
+          "permanent_works",
+          "temporary_works",
+          "plant_equipment",
+          "existing_structures",
+          "materials_on_site"
+        ],
+        "field_id": "car.property.category",
+        "field_type": "enum",
+        "notes": [],
+        "question": "What category of insured property suffered loss?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Has physical loss of or damage to insured property occurred?",
+        "enum_values": null,
+        "field_id": "car.loss.is_physical",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Has physical loss of or damage to insured property occurred?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Has a defective component been identified?",
+        "enum_values": null,
+        "field_id": "car.component.is_defective",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Has a defective component been identified?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "What is the origin of the defect?",
+        "enum_values": [
+          "design",
+          "specification",
+          "materials",
+          "workmanship",
+          "none"
+        ],
+        "field_id": "car.defect.origin",
+        "field_type": "enum",
+        "notes": [],
+        "question": "What is the origin of the defect?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Is the claim for the cost of rectifying the defective component itself?",
+        "enum_values": null,
+        "field_id": "car.claim.is_rectification",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Is the claim for the cost of rectifying the defective component itself?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Was damage caused solely to gain access to or remove the defective component?",
+        "enum_values": null,
+        "field_id": "car.claim.is_access_damage",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Was damage caused solely to gain access to or remove the defective component?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Did damage arise as a physical consequence of the defective component failing?",
+        "enum_values": null,
+        "field_id": "car.damage.consequence_of_failure",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Did damage arise as a physical consequence of the defective component failing?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "What is the total insured project value in GBP millions?",
+        "enum_values": null,
+        "field_id": "car.project.value_millions_gbp",
+        "field_type": "int",
+        "notes": [],
+        "question": "What is the total insured project value in GBP millions?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Was the loss notified to underwriters within 30 days of discovery?",
+        "enum_values": null,
+        "field_id": "car.notification.within_period",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Was the loss notified to underwriters within 30 days of discovery?",
+        "weight": 1,
+        "x_ui_widget": null
+      },
+      {
+        "description": "Is a JCT-compliant construction contract in place?",
+        "enum_values": null,
+        "field_id": "car.contract.jct_compliant",
+        "field_type": "bool",
+        "notes": [],
+        "question": "Is a JCT-compliant construction contract in place?",
+        "weight": 1,
+        "x_ui_widget": null
+      }
+    ],
+    "name": "CAR_DEFECT_EXCLUSION",
+    "ruleset_id": "construction-all-risks:20260412-gold",
+    "ruleset_version": "v99",
+    "slug": "aethis/construction-all-risks"
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "Resolved immutable identity on GET /schema (ruleset_version + content_digest)."
+  },
+  "request": {
+    "body": null,
+    "method": "GET",
+    "path": "/api/v1/public/rulesets/aethis/construction-all-risks/schema"
+  },
+  "status": 200
+}

@@ -8,7 +8,29 @@ Official Python SDK for the [Aethis](https://aethis.ai) developer API — eligib
 
 **Documentation:** [docs.aethis.ai](https://docs.aethis.ai) · [OpenAPI spec](https://docs.aethis.ai/api-reference/openapi.json) · agents via MCP: `claude mcp add aethis -- npx -y aethis-mcp`
 
-> **Authoring is in private beta.** Decision endpoints are public — `Aethis()` works with no key. Authoring endpoints require an invite. The CLI ([aethis-cli](https://pypi.org/project/aethis-cli/)) is the supported authoring path during the beta — see [docs.aethis.ai/recipes/author-a-rule](https://docs.aethis.ai/recipes/author-a-rule) for the test-driven workflow (rulesets cannot publish with a failing test). Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
+## Two access boundaries
+
+Know which one you are on before you write any code — the SDK will tell you the
+same thing in the error message if you cross it.
+
+| | **Evaluation** | **Authoring** |
+|---|---|---|
+| **Key** | None. `Aethis()` works anonymously. | Invite-only API key. |
+| **What** | `decide` on a public ruleset, `list_rulesets`, `get_schema`, `get_graph`, `get_explanation` / `explain`, `get_source`. | Publishing rulesets, project endpoints, rulebook decide + rulebook schema, `whoami`. |
+| **If you get it wrong** | — | HTTP 401/403 → `AethisAuthError` / `AethisPermissionError` with `.boundary == "authoring"` and the access-request link in the message. |
+
+Authoring is in private beta. The CLI ([aethis-cli](https://pypi.org/project/aethis-cli/)) is the supported authoring path during the beta — see [docs.aethis.ai/recipes/author-a-rule](https://docs.aethis.ai/recipes/author-a-rule) for the test-driven workflow (rulesets cannot publish with a failing test). Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
+
+```python
+from aethis_sdk import Aethis, AethisAuthError
+
+with Aethis() as client:                       # evaluation — no key
+    client.decide("aethis/construction-all-risks", {...})
+    try:
+        client.whoami()                        # authoring — needs an invite
+    except AethisAuthError as err:
+        print(err.boundary)                    # "authoring"
+```
 
 ## Install
 
@@ -40,13 +62,64 @@ with Aethis() as client:
             "child.school_type": "state_funded",
         },
     )
+    if response.has_blocking_errors:
+        # Some inputs could not be used. The decision is undetermined and
+        # there is no next question — do not read that as "finished".
+        raise SystemExit(response.blocking_errors)
+
     print(response.decision)        # "eligible" | "not_eligible" | "undetermined"
+    print(response.is_terminal)     # True only for a clean, unblocked verdict
     print(response.inputs_hash)     # canonical SHA-256 fingerprint of the input set
     print(response.decision_id)     # per-call audit identifier
-    print(response.engine_version)  # e.g. "aethis-core@0.27.0"
+    print(response.engine_version)  # e.g. "aethis-core@0.48.0"
 ```
 
-The four audit fields above (`inputs_hash`, `decision_id`, `decision_time`, `engine_version`) ship in 0.3.2+. Same `inputs_hash` always produces the same outcome from the same `engine_version` — store these alongside the decision for a defensible audit trail.
+### Blocking input errors
+
+`field_errors` is the structured channel for inputs the engine could not use — an
+unknown field key, a value that fails the field's type. Every entry is blocking,
+so the decision is always `undetermined`, **and the engine stops proposing a next
+question**. That last part is the trap: a blocked response and a finished one
+look identical if you only test `next_question is None`.
+
+```python
+response = client.decide(RULESET_ID, answers)
+if response.has_blocking_errors:
+    for field, message in response.blocking_errors.items():
+        print(f"{field}: {message}")
+elif response.is_terminal:
+    print("verdict:", response.decision)
+else:
+    print("next:", response.next_question.question)
+
+# Or make it an exception instead of a branch:
+response.raise_for_blocking_errors()   # raises AethisFieldErrors when blocked
+```
+
+The SDK also refuses to parse a response that reports `eligible`/`not_eligible`
+beside blocking errors — that contradicts the API contract, so it raises
+`AethisContractViolation` rather than handing you a verdict computed from inputs
+you did not knowingly send.
+
+### Replay identity
+
+Retain these with your own inputs and a decision can be replayed and audited
+later:
+
+```python
+identity = response.require_replay_identity()
+identity.ruleset_id       # immutable id, never the slug you asked with
+identity.ruleset_version  # published version label, e.g. "v99"
+identity.content_digest   # sha256 of the exact rule content evaluated
+identity.engine_version   # the engine build that decided
+identity.decision_id, identity.inputs_hash
+```
+
+`require_replay_identity()` raises `AethisReplayIdentityError` — naming the
+missing parts — when the engine could not resolve one (a rulebook decision, until
+composed identity lands). It never invents a placeholder: `ruleset_version` is
+`None` in that case, never the string `"unknown"`. Use `response.replay_identity`
+for the non-raising form.
 
 ### One-shot decision (async)
 
@@ -116,6 +189,41 @@ with Aethis() as client:
 
 Note: `input()` returns a string. For non-string fields (int / bool / enum) coerce the answer before calling `session.answer()` — the API expects the typed value.
 
+**Do not use `next_question() is None` as your completion test.** It is also
+`None` when blocking errors are suppressing further questions. Ask the session:
+
+```python
+status = session.status()
+status.blocked       # True when the latest decision carried blocking errors
+status.field_errors  # {field_id: message}; always a dict
+status.is_complete   # True only for a clean, terminal verdict
+status.replay_identity
+```
+
+### Source provenance
+
+Every published citation is fetched, digested, quoted verbatim and licence-checked
+at publish time — an unresolvable one blocks the publish. Both explanation
+surfaces return the same typed `SourceReference`:
+
+```python
+explanation = client.get_explanation(RULESET_ID)   # flat `criteria`
+for criterion_id, references in explanation.source_references().items():
+    for reference in references:
+        print(criterion_id, reference.authority, reference.locator)
+        print(reference.quote.exact)   # verbatim, never a summary
+        print(reference.deep_link)     # links straight to the quoted passage
+
+decision = client.decide(RULESET_ID, answers, include_explanation=True)
+decision.source_references()           # same DTO, from `explanation.groups[].criteria[]`
+```
+
+The two envelopes differ — `get_explanation()` returns a flat `criteria` list,
+`decide(include_explanation=True)` nests criteria inside groups — so the SDK
+models them separately (`ExplainResponse` vs `DecisionExplanation`). Provenance
+records *what a rule cites* and that the citation was verified to exist; it is not
+a claim that the rule's reading of it is correct.
+
 ### Authoring (requires a key)
 
 ```python
@@ -138,14 +246,19 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 | `get_rulebook_schema` | Fetch a rulebook's combined field schema, plus its `robot_hints` (conversational-agent guidance) and `engine_version` (`RulebookSchemaResponse`) |
 | `explain_failure` | Diagnose a mismatched `/decide` — returns the failing criterion and a fix hint |
 | `list_rulesets` | Page the public ruleset catalogue (`RulesetSummary` items) |
+| `get_explanation` | Typed ruleset explanation (`ExplainResponse`) with resolved identity and `SourceReference` citations |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
 | `DecideResponse`, `SchemaResponse`, `RulebookSchemaResponse`, `SchemaField`, `GraphResponse`, `RulesetGraph`, `NextQuestion`, `FieldNote`, `SectionResult`, `RulesetSummary` | Pydantic response models |
-| `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy (`.detail` / `.body` carry the API's error payload) |
+| `ExplainResponse`, `ExplainCriterion`, `DecisionExplanation`, `ExplanationGroup`, `ExplanationCriterion` | The two explanation shapes, modelled separately |
+| `SourceReference`, `SourceQuote` | Publish-validated citation contract shared by both explanation surfaces |
+| `ReplayIdentity`, `ContentIdentity` | Resolved immutable identity of the content a response came from |
+| `AethisError`, `AethisAPIError`, `AethisUnavailable`, `AethisTimeout` | Exception hierarchy (`.detail` / `.body` carry the API's error payload; `.boundary` names the access boundary on 401/403) |
 | `AethisAuthError` (401), `AethisPermissionError` (403), `AethisRateLimitError` (429) | Typed `AethisAPIError` subclasses carrying `.reason_code`, `.missing_permissions`, `.hint` from the API's structured error envelope |
+| `AethisFieldErrors`, `AethisContractViolation`, `AethisReplayIdentityError` | Blocking input errors; a response that contradicts the API contract; an unresolved replay identity |
 
 ## Configuration
 
-- `api_key` — optional during the developer beta for evaluation endpoints (`/decide`, `/schema`, `/explain`, `/source`). Required for authoring endpoints (publishing rulesets, etc.). Provisioned via [aethis.ai](https://aethis.ai).
+- `api_key` — **not needed** for evaluation endpoints (`/decide` on a public ruleset, `/rulesets`, `/schema`, `/explain`, `/source`) during the developer beta. **Required, and invite-only**, for authoring endpoints (publishing rulesets, project and rulebook endpoints). Request access at [aethis.ai/developer-access](https://aethis.ai/developer-access).
 - `base_url` — defaults to `https://api.aethis.ai`. HTTP is only permitted for `localhost` / `127.0.0.1` or when passing a test `transport`.
 - `timeout` — per-request, seconds. Defaults to 5.
 - `iam_token` — optional bearer token for Cloud Run service-to-service auth.
@@ -153,6 +266,21 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 ## Status
 
 Pre-1.0. The decision surface (`/decide`, `/schema`) is stable; authoring endpoints (projects, rulesets, publishing) are not yet exposed here — use the [Aethis CLI](https://github.com/Aethis-ai/aethis-cli) for those.
+
+## Verifying a release
+
+Each published version records the exact bytes it shipped and the commit they
+were built from, so you can check that what PyPI serves is what was released:
+
+```bash
+uv run python scripts/release_integrity.py --expect integrity.json --verify-registry
+```
+
+`integrity.json` (attached to the release run) maps `(package, version)` to each
+distribution's sha256 and to the source commit. The same release runs a hermetic
+install check — temporary `HOME`, no keys in the environment, empty cache,
+registry-only download — across the supported Python / OS / architecture matrix,
+plus a poisoned-artefact control that must fail.
 
 ## Links
 

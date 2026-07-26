@@ -1,0 +1,38 @@
+{
+  "body": {
+    "detail": [
+      {
+        "input": [
+          1,
+          2
+        ],
+        "loc": [
+          "body",
+          "batch"
+        ],
+        "msg": "Extra inputs are not permitted",
+        "type": "extra_forbidden"
+      }
+    ]
+  },
+  "provenance": {
+    "anonymous": true,
+    "captured_at": "2026-07-26T04:43:44Z",
+    "captured_from": "https://staging.api.aethis.ai",
+    "engine_version": "0.48.0",
+    "note": "DecideRequest forbids unknown top-level keys \u2014 no fictional request surface."
+  },
+  "request": {
+    "body": {
+      "batch": [
+        1,
+        2
+      ],
+      "field_values": {},
+      "ruleset_id": "aethis/construction-all-risks"
+    },
+    "method": "POST",
+    "path": "/api/v1/public/decide"
+  },
+  "status": 422
+}
