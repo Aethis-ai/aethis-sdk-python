@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import urllib.request
@@ -115,6 +116,22 @@ def provenance_problems(tuple_: dict[str, Any]) -> list[str]:
     return problems
 
 
+def source_date_epoch(repo: Path) -> str | None:
+    """The commit timestamp, for a reproducible build.
+
+    Setting ``SOURCE_DATE_EPOCH`` to this before ``uv build`` makes the **wheel**
+    byte-identical across rebuilds of the same commit, which is what turns the
+    "this commit produced these bytes" leg of the tuple from an unverifiable
+    assertion by the build job into something a third party can re-derive.
+    (The sdist is *not* yet reproducible — see ``reproducibility`` in the
+    emitted tuple.)
+    """
+    try:
+        return _git(repo, "log", "-1", "--pretty=%ct")
+    except Exception:  # pragma: no cover - best effort
+        return None
+
+
 def build_tuple(repo: Path, dist_dir: Path, version: str | None = None) -> dict[str, Any]:
     version = version or project_version(repo)
     files: list[dict[str, Any]] = []
@@ -142,6 +159,20 @@ def build_tuple(repo: Path, dist_dir: Path, version: str | None = None) -> dict[
         "registry_release_url": f"https://pypi.org/project/{PACKAGE}/{version}/",
         "source": source_provenance(repo),
         "files": files,
+        "reproducibility": {
+            # Be precise about which leg of the tuple a third party can check.
+            "source_date_epoch": os.environ.get("SOURCE_DATE_EPOCH"),
+            "expected_source_date_epoch": source_date_epoch(repo),
+            "bdist_wheel": (
+                "reproducible when SOURCE_DATE_EPOCH is set to the commit timestamp "
+                "and the same builder/Python is used"
+            ),
+            "sdist": (
+                "NOT reproducible — setuptools varies the archive between runs, so the "
+                "sdist digest is an attestation by the emitting job, not independently "
+                "re-derivable"
+            ),
+        },
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 

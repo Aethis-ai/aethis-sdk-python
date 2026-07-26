@@ -29,8 +29,15 @@ jobs:
             exit 1
           fi
 
-      - name: Build sdist and wheel
+      # SOURCE_DATE_EPOCH pins archive timestamps to the tag's commit so the
+      # wheel is byte-reproducible from the source commit alone. (The sdist is
+      # not yet — recorded honestly in the integrity tuple.)
+      - name: Build sdist and wheel reproducibly
         run: |
+          set -euo pipefail
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          export SOURCE_DATE_EPOCH
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
           python -m pip install --upgrade pip build twine
           python -m build
 

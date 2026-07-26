@@ -249,6 +249,28 @@ class TestCorruptedArtefact:
             assert not hermetic._CORRUPTION_EVIDENCE.search(noise), noise
 
 
+class TestReproducibilityIsRecordedHonestly:
+    """The tuple must not imply more verifiability than it has.
+
+    Three builds of the same clean tree produced three different digest pairs
+    before ``SOURCE_DATE_EPOCH`` was set. With it, the *wheel* is byte-stable
+    and the source leg is re-derivable; the *sdist* still is not. Both facts
+    are recorded rather than glossed, because P10 reads this tuple.
+    """
+
+    def test_the_tuple_states_what_is_and_is_not_reproducible(self, fake_dist: Path) -> None:
+        tuple_ = integrity.build_tuple(Path(__file__).resolve().parent.parent, fake_dist, version="9.9.9")
+        repro = tuple_["reproducibility"]
+        assert "reproducible" in repro["bdist_wheel"]
+        assert repro["sdist"].startswith("NOT reproducible")
+        assert "attestation" in repro["sdist"], "the sdist limitation must be stated, not implied"
+
+    def test_the_expected_epoch_comes_from_the_commit(self) -> None:
+        repo = Path(__file__).resolve().parent.parent
+        epoch = integrity.source_date_epoch(repo)
+        assert epoch is not None and epoch.isdigit()
+
+
 class TestProvenanceGate:
     """`--require-clean` must fail when provenance is *unknown*, not just dirty.
 

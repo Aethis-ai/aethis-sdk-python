@@ -60,8 +60,33 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Build the distribution
-        run: uv build
+      # SOURCE_DATE_EPOCH pins the archive timestamps to the commit, which is
+      # what makes the wheel byte-reproducible. Without it the "this commit
+      # produced these bytes" leg of the integrity tuple is an assertion nobody
+      # can re-derive.
+      - name: Build the distribution reproducibly
+        run: |
+          set -euo pipefail
+          SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          export SOURCE_DATE_EPOCH
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> "$GITHUB_ENV"
+          uv build
+
+      # The wheel digest must be re-derivable, or the integrity tuple's source
+      # leg is unverifiable. Guarded here rather than claimed in a doc.
+      - name: Verify the wheel rebuilds byte-identically
+        run: |
+          set -euo pipefail
+          before="$(shasum -a 256 dist/*.whl | awk '{print $1}')"
+          rm -rf build src/*.egg-info rebuild
+          uv build --wheel --out-dir rebuild
+          after="$(shasum -a 256 rebuild/*.whl | awk '{print $1}')"
+          if [[ "$before" != "$after" ]]; then
+            echo "wheel is not reproducible: $before != $after" >&2
+            exit 1
+          fi
+          echo "wheel reproducible: $before"
+          rm -rf rebuild
 
       - name: Emit the release integrity tuple
         run: python scripts/release_integrity.py --out dist/integrity.json
