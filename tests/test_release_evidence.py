@@ -175,7 +175,7 @@ class TestPoisonedArtefact:
 class TestRuntimeFacts:
     def test_records_the_matrix_dimensions(self) -> None:
         facts = hermetic.runtime_facts()
-        for key in ("python", "implementation", "os", "architecture"):
+        for key in ("driver_python", "implementation", "os", "architecture"):
             assert facts[key]
 
 

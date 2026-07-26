@@ -139,6 +139,7 @@ assert blocked.is_terminal is False, "a blocked decision must never look termina
 
 print(json.dumps({{
     "installed_version": version("{PACKAGE}"),
+    "interpreter": "%d.%d.%d" % sys.version_info[:3],
     "module_file": {IMPORT_NAME}.__file__,
     "ruleset_version": identity.ruleset_version,
     "content_digest": identity.content_digest,
@@ -220,6 +221,8 @@ def install_and_smoke(
             "label": label,
             "ok": True,
             "installed_version": result["installed_version"],
+            "requested_python": python_version,
+            "venv_python": result["interpreter"],
             "smoke": result,
             "environment": scrubbed_env_report(env),
             "cache_was_empty_at_start": True,
@@ -259,8 +262,11 @@ def poison(path: Path, target_dir: Path) -> Path:
 
 
 def runtime_facts() -> dict[str, Any]:
+    """The host this check ran on. The interpreter each throwaway venv actually
+    used is recorded per run as ``venv_python`` — the two differ whenever
+    ``--python`` asks uv for a different one."""
     return {
-        "python": platform.python_version(),
+        "driver_python": platform.python_version(),
         "implementation": platform.python_implementation(),
         "os": platform.system(),
         "release": platform.release(),
