@@ -6,6 +6,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.12.0 (2026-08-19)
+
+### Added
+
+- **`SchemaField` reads the two authored metadata properties the engine now
+  publishes** (aethis-core#449; workspace epic aethis-workspace#1067).
+  `enum_labels` — an optional `{member slug: display label}` map — and
+  `canonical_field` — the author's pairing between an eligibility field key
+  and the consumer's canonical storage key — are carried on every field of
+  both `/rulesets/{id}/schema` and `/rulebooks/{id}/schema`. Previously the
+  SDK's model declared neither, so Pydantic silently dropped them and an SDK
+  caller could not render a label for a stored enum slug.
+
+  Both are opaque to the engine and to this SDK: nothing here validates
+  `enum_labels` against `enum_values`, or resolves `canonical_field`. Both are
+  optional and default to `None`, so a schema from an engine predating the
+  properties parses exactly as before. `None` and `{}` are deliberately
+  distinct — `{}` is an author declaring "no labels", `None` is an author
+  declaring nothing — so read them with `is None`, never truthiness.
+
 ## 0.11.0 (2026-07-26)
 
 Makes the SDK a safe, immutable release component for the public developer

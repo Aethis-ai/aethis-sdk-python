@@ -497,13 +497,22 @@ class DecideResponse(BaseModel):
 
 
 class SchemaField(BaseModel):
-    """A single field definition from a ruleset schema."""
+    """A single field definition from a ruleset schema.
+
+    ``enum_labels`` and ``canonical_field`` are authored metadata the engine
+    carries but never interprets (aethis-core#449). Both are ``None`` against
+    an engine predating them and against a field whose author declared
+    neither — the two are indistinguishable here, so treat ``None`` as "render
+    the slug", never as "the engine is old".
+    """
 
     field_id: str
     field_type: str
     description: str | None = None
     question: str | None = None
     enum_values: list[str] | None = None
+    enum_labels: dict[str, str] | None = None
+    canonical_field: str | None = None
 
 
 class SchemaResponse(BaseModel):
