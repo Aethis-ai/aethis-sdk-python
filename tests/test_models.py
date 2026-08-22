@@ -455,3 +455,98 @@ class TestDecideResponseGraphOverlay:
         overlay = {"nodes": [{"id": "criterion:period_valid", "overlay": {"status": "satisfied"}}]}
         resp = DecideResponse.model_validate({"decision": "eligible", "graph_overlay": overlay})
         assert resp.graph_overlay == overlay
+
+
+class TestSchemaFieldAuthoredMetadata:
+    """``enum_labels`` + ``canonical_field`` on every ``/schema`` field
+    (aethis-core#449, workspace epic ws#1067).
+
+    Both are authored metadata the engine carries and never interprets. The
+    engine emits them on both schema routes ALWAYS — explicitly ``null`` when
+    neither the rulebook nor the compiled field declares one — so an SDK
+    caller must be able to read a populated map, an explicit null, and a
+    payload from an engine that predates the keys entirely.
+    """
+
+    def test_round_trips_populated_metadata(self):
+        payload = {
+            "ruleset_id": "rs_x",
+            "fields": [
+                {
+                    "field_id": "child.school_type",
+                    "field_type": "enum",
+                    "enum_values": ["state_funded", "independent"],
+                    "enum_labels": {
+                        "state_funded": "State-funded school",
+                        "independent": "Independent school",
+                    },
+                    "canonical_field": "pupil.school_type",
+                }
+            ],
+        }
+        field = SchemaResponse.model_validate(payload).fields[0]
+        assert field.enum_labels == {
+            "state_funded": "State-funded school",
+            "independent": "Independent school",
+        }
+        assert field.canonical_field == "pupil.school_type"
+
+    def test_explicit_null_parses_as_none(self):
+        """The engine's "declared nothing" signal — an explicit null rather
+        than an absent key."""
+        payload = {
+            "ruleset_id": "rs_x",
+            "fields": [
+                {
+                    "field_id": "child.age",
+                    "field_type": "int",
+                    "enum_labels": None,
+                    "canonical_field": None,
+                }
+            ],
+        }
+        field = SchemaResponse.model_validate(payload).fields[0]
+        assert field.enum_labels is None
+        assert field.canonical_field is None
+
+    def test_older_engine_omitting_the_keys_still_parses(self):
+        """Back-compat: a schema from an engine predating aethis-core#449
+        carries neither key, and must parse to None rather than fail closed."""
+        payload = {
+            "ruleset_id": "rs_legacy",
+            "fields": [{"field_id": "child.age", "field_type": "int"}],
+        }
+        field = SchemaResponse.model_validate(payload).fields[0]
+        assert field.enum_labels is None
+        assert field.canonical_field is None
+
+    def test_rulebook_schema_carries_the_same_metadata(self):
+        """The rulebook route emits the same two keys on each field, with the
+        rulebook's own declaration overriding the member ruleset's."""
+        payload = {
+            "rulebook_id": "rb_x",
+            "sections": ["schooling"],
+            "fields": [
+                {
+                    "field_id": "child.school_type",
+                    "field_type": "enum",
+                    "enum_labels": {"state_funded": "State-funded school"},
+                    "canonical_field": "pupil.school_type",
+                }
+            ],
+        }
+        field = RulebookSchemaResponse.model_validate(payload).fields[0]
+        assert field.enum_labels == {"state_funded": "State-funded school"}
+        assert field.canonical_field == "pupil.school_type"
+
+    def test_an_empty_label_map_is_not_none(self):
+        """``{}`` is the author declaring "no labels" — a different statement
+        from declaring nothing, and the engine preserves the distinction. A
+        truthiness check here would collapse the two."""
+        payload = {
+            "ruleset_id": "rs_x",
+            "fields": [{"field_id": "child.age", "field_type": "int", "enum_labels": {}}],
+        }
+        field = SchemaResponse.model_validate(payload).fields[0]
+        assert field.enum_labels == {}
+        assert field.enum_labels is not None
