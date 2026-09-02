@@ -244,6 +244,42 @@ class TestGenerationRecovery:
         assert isinstance(response, GenerationCancellationResponse)
         assert response.project_released is True
 
+    def test_cancel_generation_replays_exact_cancelled_job_after_response_loss(self):
+        methods: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            methods.append(request.method)
+            if request.method == "GET":
+                return httpx.Response(
+                    200,
+                    json={
+                        "generation_contract_version": 1,
+                        "project_status": "failed",
+                        "job": {
+                            "job_id": "job_123",
+                            "status": "failed",
+                            "progress_percent": 50,
+                            "error_detail": {"reason_code": "generation_cancelled"},
+                        },
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "job_id": "job_123",
+                    "status": "failed",
+                    "outcome": "already_cancelled",
+                    "project_released": True,
+                    "detail": "The exact job was already cancelled.",
+                },
+            )
+
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+            response = client.cancel_generation("proj_123", "job_123")
+
+        assert methods == ["GET", "POST"]
+        assert response.outcome == "already_cancelled"
+
 
 class TestExplainFailure:
     """POST /api/v1/public/rulesets/{ruleset_id}/explain-failure SDK wrapper."""

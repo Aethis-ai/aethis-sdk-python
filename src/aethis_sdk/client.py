@@ -88,6 +88,21 @@ def _cancel_generation_path(project_id: str) -> str:
     return f"{PROJECTS_PATH}/{project_id}/generate/cancel"
 
 
+def _is_exact_cancellation_target(status: GenerationStatusResponse, job_id: str) -> bool:
+    """Accept a live target or the exact cancelled row for response-loss replay."""
+
+    job = status.job
+    if job is None or job.job_id != job_id:
+        return False
+    if job.status in ("queued", "running"):
+        return True
+    return (
+        job.status == "failed"
+        and isinstance(job.error_detail, dict)
+        and job.error_detail.get("reason_code") == "generation_cancelled"
+    )
+
+
 def _decide_payload(
     ruleset_id: str,
     field_values: dict[str, Any],
@@ -292,8 +307,10 @@ class Aethis:
             raise AethisContractViolation(
                 "Generation cancellation requires an engine advertising generation_contract_version=1."
             )
-        if status.job is None or status.job.job_id != job_id or status.job.status not in ("queued", "running"):
-            raise AethisContractViolation("The observed generation job is no longer the project's active job.")
+        if not _is_exact_cancellation_target(status, job_id):
+            raise AethisContractViolation(
+                "The exact generation job is neither active nor an already-cancelled replay target."
+            )
         resp = self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 
@@ -565,8 +582,10 @@ class AsyncAethis:
             raise AethisContractViolation(
                 "Generation cancellation requires an engine advertising generation_contract_version=1."
             )
-        if status.job is None or status.job.job_id != job_id or status.job.status not in ("queued", "running"):
-            raise AethisContractViolation("The observed generation job is no longer the project's active job.")
+        if not _is_exact_cancellation_target(status, job_id):
+            raise AethisContractViolation(
+                "The exact generation job is neither active nor an already-cancelled replay target."
+            )
         resp = await self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 

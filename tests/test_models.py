@@ -71,6 +71,21 @@ class TestGenerationRecoveryModels:
         assert response.job is None
         assert response.test_results is None
 
+    def test_future_status_vocabulary_remains_readable_but_not_mutation_capable(self):
+        response = GenerationStatusResponse.model_validate(
+            {
+                "generation_contract_version": 2,
+                "telemetry_availability": "future_telemetry",
+                "retry_readiness": "future_readiness",
+                "worker_lifecycle": "future_lifecycle",
+                "project_status": "generating",
+                "job": None,
+            }
+        )
+
+        assert response.generation_contract_version == 2
+        assert response.worker_lifecycle == "future_lifecycle"
+
     def test_cancellation_is_explicitly_a_failed_job_response(self):
         response = GenerationCancellationResponse.model_validate(
             {

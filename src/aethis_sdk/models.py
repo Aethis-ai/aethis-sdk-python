@@ -621,10 +621,13 @@ class GenerationJobStatus(BaseModel):
 class GenerationStatusResponse(BaseModel):
     """Response body from ``GET /api/v1/public/projects/{id}/status``."""
 
-    generation_contract_version: Literal[1] | None = None
-    telemetry_availability: Literal["no_job", "legacy_record", "current"] | None = None
-    retry_readiness: Literal["ready", "cleanup_pending", "blocked"] | None = None
-    worker_lifecycle: Literal["no_job", "legacy_record", "queued", "active", "terminal"] | None = None
+    # Capability and lifecycle vocabularies are intentionally open on reads:
+    # callers must still be able to inspect a future engine. Mutations below
+    # explicitly require the version they understand.
+    generation_contract_version: int | None = None
+    telemetry_availability: str | None = None
+    retry_readiness: str | None = None
+    worker_lifecycle: str | None = None
     project_status: str
     job: GenerationJobStatus | None = None
     latest_ruleset_id: str | None = None
