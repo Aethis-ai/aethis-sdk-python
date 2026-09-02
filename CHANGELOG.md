@@ -23,6 +23,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   credentials on a caller's behalf. Requires the aethis-core generation-
   recovery API to be live on the target API; earlier engine versions do not
   advertise `generation_contract_version=1` and are refused before mutation.
+  Status exposes telemetry availability, server-authoritative worker lifecycle,
+  and retry readiness; cancellation distinguishes `cancelled` from the
+  idempotent `already_cancelled` outcome.
 
 ## 0.12.0 (2026-08-19)
 

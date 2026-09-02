@@ -82,7 +82,20 @@ class TestGenerationRecoveryModels:
             }
         )
         assert response.status == "failed"
+        assert response.outcome == "cancelled"
         assert response.project_released is True
+
+    def test_cancellation_accepts_idempotent_already_cancelled_outcome(self):
+        response = GenerationCancellationResponse.model_validate(
+            {
+                "job_id": "job_123",
+                "status": "failed",
+                "outcome": "already_cancelled",
+                "project_released": True,
+                "detail": "The exact job was already cancelled.",
+            }
+        )
+        assert response.outcome == "already_cancelled"
 
 
 class TestDecideResponseAuditFields:

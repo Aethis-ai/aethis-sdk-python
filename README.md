@@ -248,12 +248,17 @@ with Aethis(api_key="ak_live_...") as client:
     if status.job is not None:
         print(status.job.status, status.job.seconds_since_progress)
 
+    # These top-level fields are authoritative. Retry only when readiness is
+    # "ready"; an old heartbeat by itself does not prove worker death.
+    print(status.telemetry_availability, status.worker_lifecycle)
+    print(status.retry_readiness)
+
     # Explicit only: this is a destructive, cooperative request. It releases
     # the project but cannot interrupt an in-flight provider request.
     # The SDK rechecks generation_contract_version and this exact active job
     # before sending the destructive request; old engines are refused.
     cancelled = client.cancel_generation("proj_example", status.job.job_id)
-    print(cancelled.detail)
+    print(cancelled.outcome, cancelled.detail)  # cancelled | already_cancelled
 ```
 
 Use `AsyncAethis` for the same HTTP-client methods with `await`.
