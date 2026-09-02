@@ -22,6 +22,10 @@ class TestGenerationRecoveryModels:
     def test_status_round_trips_lifecycle_telemetry(self):
         response = GenerationStatusResponse.model_validate(
             {
+                "generation_contract_version": 1,
+                "telemetry_availability": "current",
+                "retry_readiness": "blocked",
+                "worker_lifecycle": "active",
                 "project_status": "generating",
                 "latest_ruleset_id": None,
                 "job": {
@@ -51,6 +55,8 @@ class TestGenerationRecoveryModels:
         )
 
         assert response.job is not None
+        assert response.generation_contract_version == 1
+        assert response.retry_readiness == "blocked"
         assert response.job.current_turn == 3
         assert response.job.last_progress_at is not None
         assert response.job.last_progress_at.isoformat() == "2026-09-02T18:19:40+00:00"
@@ -70,6 +76,7 @@ class TestGenerationRecoveryModels:
             {
                 "job_id": "job_123",
                 "status": "failed",
+                "outcome": "cancelled",
                 "project_released": True,
                 "detail": "Job record marked failed and its project ownership released.",
             }

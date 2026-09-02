@@ -600,7 +600,7 @@ class GenerationJobStatus(BaseModel):
     max_turns: int | None = None
     best_passed: int | None = None
     test_total: int | None = None
-    tool_calls: int = 0
+    tool_calls: int | None = None
     last_tool: str | None = None
     last_progress_at: datetime | None = None
     seconds_since_progress: float | None = None
@@ -621,6 +621,10 @@ class GenerationJobStatus(BaseModel):
 class GenerationStatusResponse(BaseModel):
     """Response body from ``GET /api/v1/public/projects/{id}/status``."""
 
+    generation_contract_version: Literal[1] | None = None
+    telemetry_availability: Literal["no_job", "legacy_record", "current"] | None = None
+    retry_readiness: Literal["ready", "cleanup_pending", "blocked"] | None = None
+    worker_lifecycle: Literal["no_job", "legacy_record", "queued", "active", "terminal"] | None = None
     project_status: str
     job: GenerationJobStatus | None = None
     latest_ruleset_id: str | None = None
@@ -638,6 +642,7 @@ class GenerationCancellationResponse(BaseModel):
 
     job_id: str
     status: Literal["failed"]
+    outcome: Literal["cancelled", "already_cancelled"]
     project_released: bool
     detail: str
 

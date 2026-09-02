@@ -230,6 +230,19 @@ class TestGenerationRecovery:
 
     async def test_cancel_generation_is_an_explicit_cooperative_request(self):
         def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "GET":
+                return httpx.Response(
+                    200,
+                    json={
+                        "generation_contract_version": 1,
+                        "telemetry_availability": "current",
+                        "retry_readiness": "blocked",
+                        "worker_lifecycle": "active",
+                        "project_status": "generating",
+                        "job": {"job_id": "job_123", "status": "running", "progress_percent": 50},
+                        "latest_ruleset_id": None,
+                    },
+                )
             assert request.method == "POST"
             assert request.url.path == "/api/v1/public/projects/proj_123/generate/cancel"
             assert request.url.params["job_id"] == "job_123"
@@ -238,6 +251,7 @@ class TestGenerationRecovery:
                 json={
                     "job_id": "job_123",
                     "status": "failed",
+                    "outcome": "cancelled",
                     "project_released": True,
                     "detail": "The worker observes cancellation at its next boundary.",
                 },

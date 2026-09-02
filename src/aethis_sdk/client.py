@@ -18,7 +18,7 @@ from aethis_sdk._base import (
     unavailable_after_retries,
     validate_base_url,
 )
-from aethis_sdk.errors import AethisError, AethisTimeout
+from aethis_sdk.errors import AethisContractViolation, AethisError, AethisTimeout
 from aethis_sdk.models import (
     DecideResponse,
     ExplainResponse,
@@ -287,6 +287,13 @@ class Aethis:
         :meth:`get_generation_status` first when deciding whether to cancel.
         Requires an API key with ``projects:write``.
         """
+        status = self.get_generation_status(project_id)
+        if status.generation_contract_version != 1:
+            raise AethisContractViolation(
+                "Generation cancellation requires an engine advertising generation_contract_version=1."
+            )
+        if status.job is None or status.job.job_id != job_id or status.job.status not in ("queued", "running"):
+            raise AethisContractViolation("The observed generation job is no longer the project's active job.")
         resp = self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 
@@ -553,6 +560,13 @@ class AsyncAethis:
         in-flight provider request; the worker stops at its next safe boundary.
         Requires an API key with ``projects:write``.
         """
+        status = await self.get_generation_status(project_id)
+        if status.generation_contract_version != 1:
+            raise AethisContractViolation(
+                "Generation cancellation requires an engine advertising generation_contract_version=1."
+            )
+        if status.job is None or status.job.job_id != job_id or status.job.status not in ("queued", "running"):
+            raise AethisContractViolation("The observed generation job is no longer the project's active job.")
         resp = await self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 

@@ -250,6 +250,8 @@ with Aethis(api_key="ak_live_...") as client:
 
     # Explicit only: this is a destructive, cooperative request. It releases
     # the project but cannot interrupt an in-flight provider request.
+    # The SDK rechecks generation_contract_version and this exact active job
+    # before sending the destructive request; old engines are refused.
     cancelled = client.cancel_generation("proj_example", status.job.job_id)
     print(cancelled.detail)
 ```

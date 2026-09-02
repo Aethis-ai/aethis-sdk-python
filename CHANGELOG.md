@@ -22,7 +22,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its next safe boundary. The SDK never cancels, resumes, retries, or stores
   credentials on a caller's behalf. Requires the aethis-core generation-
   recovery API to be live on the target API; earlier engine versions do not
-  expose these routes.
+  advertise `generation_contract_version=1` and are refused before mutation.
 
 ## 0.12.0 (2026-08-19)
 
