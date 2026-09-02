@@ -12,6 +12,8 @@ from aethis_sdk import (
     AethisUnavailable,
     AsyncAethis,
     DecideResponse,
+    GenerationCancellationResponse,
+    GenerationStatusResponse,
     RulesetSummary,
     SchemaResponse,
 )
@@ -199,6 +201,52 @@ class TestGetSchema:
         async with AsyncAethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
             with pytest.raises(AethisAPIError, match="404"):
                 await client.get_schema("nonexistent:v1")
+
+
+class TestGenerationRecovery:
+    async def test_get_generation_status_is_a_single_observational_read(self):
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            assert request.method == "GET"
+            assert request.url.path == "/api/v1/public/projects/proj_123/status"
+            return httpx.Response(
+                200,
+                json={
+                    "project_status": "generating",
+                    "latest_ruleset_id": None,
+                    "job": {"job_id": "job_123", "status": "running", "progress_percent": 50},
+                },
+            )
+
+        async with AsyncAethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+            response = await client.get_generation_status("proj_123")
+
+        assert isinstance(response, GenerationStatusResponse)
+        assert response.job is not None
+        assert calls == 1
+
+    async def test_cancel_generation_is_an_explicit_cooperative_request(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.method == "POST"
+            assert request.url.path == "/api/v1/public/projects/proj_123/generate/cancel"
+            return httpx.Response(
+                200,
+                json={
+                    "job_id": "job_123",
+                    "status": "failed",
+                    "project_released": True,
+                    "detail": "The worker observes cancellation at its next boundary.",
+                },
+            )
+
+        async with AsyncAethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+            response = await client.cancel_generation("proj_123")
+
+        assert isinstance(response, GenerationCancellationResponse)
+        assert response.status == "failed"
 
 
 class TestReadOnlyEndpoints:

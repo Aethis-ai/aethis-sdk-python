@@ -22,6 +22,8 @@ from aethis_sdk.errors import AethisError, AethisTimeout
 from aethis_sdk.models import (
     DecideResponse,
     ExplainResponse,
+    GenerationCancellationResponse,
+    GenerationStatusResponse,
     GraphResponse,
     RateLimit,
     RulebookSchemaResponse,
@@ -34,6 +36,7 @@ DECIDE_PATH = "/api/v1/public/decide"
 WHOAMI_PATH = "/api/v1/public/me"
 RULESETS_PATH = "/api/v1/public/rulesets"
 USAGE_PATH = "/api/v1/public/usage"
+PROJECTS_PATH = "/api/v1/public/projects"
 
 
 def _parse_rate_limit(resp: httpx.Response) -> RateLimit | None:
@@ -75,6 +78,14 @@ def _source_path(ruleset_id: str) -> str:
 
 def _explain_failure_path(ruleset_id: str) -> str:
     return f"/api/v1/public/rulesets/{ruleset_id}/explain-failure"
+
+
+def _generation_status_path(project_id: str) -> str:
+    return f"{PROJECTS_PATH}/{project_id}/status"
+
+
+def _cancel_generation_path(project_id: str) -> str:
+    return f"{PROJECTS_PATH}/{project_id}/generate/cancel"
 
 
 def _decide_payload(
@@ -256,6 +267,28 @@ class Aethis:
         """
         resp = self._request("GET", USAGE_PATH)
         return UsageResponse.model_validate(resp.json())
+
+    def get_generation_status(self, project_id: str) -> GenerationStatusResponse:
+        """Return the latest generation lifecycle state for ``project_id``.
+
+        This is an observational read: it does not poll, retry, resume, or
+        cancel a generation. When there is no generation job, ``response.job``
+        is ``None``. Requires an API key with ``projects:read``.
+        """
+        resp = self._request("GET", _generation_status_path(project_id))
+        return GenerationStatusResponse.model_validate(resp.json())
+
+    def cancel_generation(self, project_id: str) -> GenerationCancellationResponse:
+        """Request cooperative cancellation of the active generation job.
+
+        This explicit, destructive action marks the job failed and releases
+        project ownership. It cannot interrupt an in-flight provider request;
+        that worker stops at its next safe boundary. Check
+        :meth:`get_generation_status` first when deciding whether to cancel.
+        Requires an API key with ``projects:write``.
+        """
+        resp = self._request("POST", _cancel_generation_path(project_id))
+        return GenerationCancellationResponse.model_validate(resp.json())
 
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""
@@ -503,6 +536,25 @@ class AsyncAethis:
         """
         resp = await self._request("GET", USAGE_PATH)
         return UsageResponse.model_validate(resp.json())
+
+    async def get_generation_status(self, project_id: str) -> GenerationStatusResponse:
+        """Return the latest generation lifecycle state for ``project_id``.
+
+        This is an observational read: it does not poll, retry, resume, or
+        cancel a generation. Requires an API key with ``projects:read``.
+        """
+        resp = await self._request("GET", _generation_status_path(project_id))
+        return GenerationStatusResponse.model_validate(resp.json())
+
+    async def cancel_generation(self, project_id: str) -> GenerationCancellationResponse:
+        """Request cooperative cancellation of the active generation job.
+
+        This method is explicit and destructive. It cannot interrupt an
+        in-flight provider request; the worker stops at its next safe boundary.
+        Requires an API key with ``projects:write``.
+        """
+        resp = await self._request("POST", _cancel_generation_path(project_id))
+        return GenerationCancellationResponse.model_validate(resp.json())
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:
         """Return the field schema for a ruleset."""

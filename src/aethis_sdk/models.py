@@ -571,6 +571,77 @@ class RulebookSchemaResponse(BaseModel):
     engine_version: str | None = None
 
 
+class GenerationTestCaseResult(BaseModel):
+    """One completed test case returned with a generated ruleset."""
+
+    name: str
+    passed: bool
+    expected: str | None = None
+    actual: str | None = None
+
+
+class GenerationJobStatus(BaseModel):
+    """Live, typed telemetry for a project generation job.
+
+    ``job_id``, ``status`` and ``progress_percent`` are the original status
+    contract. The remaining fields are additive lifecycle telemetry: callers
+    can distinguish an active worker from a job that has stopped making
+    progress, and can inspect a terminal failure without parsing prose.
+
+    A status request is observational only. It never retries, resumes, or
+    cancels a generation.
+    """
+
+    job_id: str
+    status: str
+    progress_percent: int
+    progress_detail: str | None = None
+    current_turn: int | None = None
+    max_turns: int | None = None
+    best_passed: int | None = None
+    test_total: int | None = None
+    tool_calls: int = 0
+    last_tool: str | None = None
+    last_progress_at: datetime | None = None
+    seconds_since_progress: float | None = None
+    worker_heartbeat_at: datetime | None = None
+    lease_expires_at: datetime | None = None
+    absolute_deadline_at: datetime | None = None
+    result_ruleset_id: str | None = None
+    draft_ruleset_id: str | None = None
+    value_spaces_resolved: dict[str, Any] | None = None
+    error_detail: dict[str, Any] | None = None
+    error_message: str | None = None
+    provenance_report: dict[str, Any] | None = None
+    provenance_error: str | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class GenerationStatusResponse(BaseModel):
+    """Response body from ``GET /api/v1/public/projects/{id}/status``."""
+
+    project_status: str
+    job: GenerationJobStatus | None = None
+    latest_ruleset_id: str | None = None
+    test_results: list[GenerationTestCaseResult] | None = None
+
+
+class GenerationCancellationResponse(BaseModel):
+    """Response body from ``POST /projects/{id}/generate/cancel``.
+
+    Cancellation fences the job record and releases the project's generation
+    ownership. It is cooperative: an in-flight provider request cannot be
+    interrupted, and its worker stops at the next safe boundary. The SDK never
+    invokes this endpoint implicitly.
+    """
+
+    job_id: str
+    status: Literal["failed"]
+    project_released: bool
+    detail: str
+
+
 class RulesetGraph(BaseModel):
     """The JSON graph IR returned inside a graph response: nodes/edges plus
     summary stats.
@@ -694,6 +765,10 @@ __all__ = [
     "ExplanationCriterion",
     "ExplanationGroup",
     "FieldNote",
+    "GenerationCancellationResponse",
+    "GenerationJobStatus",
+    "GenerationStatusResponse",
+    "GenerationTestCaseResult",
     "GraphResponse",
     "NextQuestion",
     "RateLimit",

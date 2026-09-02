@@ -60,6 +60,12 @@ class TestAuthoringBoundary:
                 client.get_rulebook_schema("aethis/uk-fsm")
         assert exc.value.boundary == BOUNDARY_AUTHORING
 
+    def test_generation_status_is_the_authoring_side(self) -> None:
+        with Aethis(base_url="http://test", transport=_status_transport(401, CAPTURED_401["body"])) as client:
+            with pytest.raises(AethisAuthError) as exc:
+                client.get_generation_status("proj_123")
+        assert exc.value.boundary == BOUNDARY_AUTHORING
+
     def test_scope_denial_names_the_boundary_and_keeps_the_engine_hint(self) -> None:
         envelope = {
             "detail": {
@@ -182,6 +188,8 @@ class TestKeyRequiredSubpathsAreNotClaimedByThePrefix:
             "/api/v1/public/rulesets/x/source",
             "/api/v1/public/rulesets/x/explain-failure",
             "/api/v1/public/rulebooks/x/schema",
+            "/api/v1/public/projects/x/status",
+            "/api/v1/public/projects/x/generate/cancel",
         ]
         for path in paths:
             assert access_boundary(path, 401) in (BOUNDARY_EVALUATION, BOUNDARY_AUTHORING), path

@@ -12,6 +12,8 @@ from aethis_sdk import (
     AethisAPIError,
     AethisUnavailable,
     DecideResponse,
+    GenerationCancellationResponse,
+    GenerationStatusResponse,
     RulesetSummary,
     SchemaResponse,
 )
@@ -172,6 +174,60 @@ class TestGetSchema:
             resp = client.get_schema("b:v1")
         assert isinstance(resp, SchemaResponse)
         assert resp.ruleset_id == "b:v1"
+
+
+class TestGenerationRecovery:
+    def test_get_generation_status_is_a_single_observational_read(self):
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            assert request.method == "GET"
+            assert request.url.path == "/api/v1/public/projects/proj_123/status"
+            return httpx.Response(
+                200,
+                json={
+                    "project_status": "generating",
+                    "latest_ruleset_id": None,
+                    "job": {
+                        "job_id": "job_123",
+                        "status": "running",
+                        "progress_percent": 50,
+                        "worker_heartbeat_at": "2026-09-02T18:19:45Z",
+                        "seconds_since_progress": 4.0,
+                    },
+                },
+            )
+
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+            response = client.get_generation_status("proj_123")
+
+        assert isinstance(response, GenerationStatusResponse)
+        assert response.job is not None
+        assert response.job.worker_heartbeat_at is not None
+        assert calls == 1, "status must never poll or retry a healthy response"
+
+    def test_cancel_generation_is_an_explicit_cooperative_request(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.method == "POST"
+            assert request.url.path == "/api/v1/public/projects/proj_123/generate/cancel"
+            assert request.content == b""
+            return httpx.Response(
+                200,
+                json={
+                    "job_id": "job_123",
+                    "status": "failed",
+                    "project_released": True,
+                    "detail": "The worker observes cancellation at its next boundary.",
+                },
+            )
+
+        with Aethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
+            response = client.cancel_generation("proj_123")
+
+        assert isinstance(response, GenerationCancellationResponse)
+        assert response.project_released is True
 
 
 class TestExplainFailure:

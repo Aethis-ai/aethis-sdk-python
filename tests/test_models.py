@@ -5,6 +5,8 @@ from __future__ import annotations
 from aethis_sdk import (
     DecideResponse,
     FieldNote,
+    GenerationCancellationResponse,
+    GenerationStatusResponse,
     GraphResponse,
     RulebookSchemaResponse,
     RulesetGraph,
@@ -12,6 +14,68 @@ from aethis_sdk import (
     RulesetSummary,
     SchemaResponse,
 )
+
+
+class TestGenerationRecoveryModels:
+    """The authoring lifecycle contract is typed without hidden automation."""
+
+    def test_status_round_trips_lifecycle_telemetry(self):
+        response = GenerationStatusResponse.model_validate(
+            {
+                "project_status": "generating",
+                "latest_ruleset_id": None,
+                "job": {
+                    "job_id": "job_123",
+                    "status": "running",
+                    "progress_percent": 42,
+                    "progress_detail": "Validating generated rules.",
+                    "current_turn": 3,
+                    "max_turns": 8,
+                    "best_passed": 17,
+                    "test_total": 20,
+                    "tool_calls": 5,
+                    "last_tool": "compile_and_test",
+                    "last_progress_at": "2026-09-02T18:19:40Z",
+                    "seconds_since_progress": 12.5,
+                    "worker_heartbeat_at": "2026-09-02T18:19:45Z",
+                    "lease_expires_at": "2026-09-02T18:20:15Z",
+                    "absolute_deadline_at": "2026-09-02T18:29:40Z",
+                    "error_detail": {"reason_code": "generation_timeout"},
+                    "created_at": "2026-09-02T18:00:00Z",
+                    "completed_at": None,
+                },
+                "test_results": [
+                    {"name": "adult applicant", "passed": True, "expected": "eligible", "actual": "eligible"}
+                ],
+            }
+        )
+
+        assert response.job is not None
+        assert response.job.current_turn == 3
+        assert response.job.last_progress_at is not None
+        assert response.job.last_progress_at.isoformat() == "2026-09-02T18:19:40+00:00"
+        assert response.job.error_detail == {"reason_code": "generation_timeout"}
+        assert response.test_results is not None
+        assert response.test_results[0].passed is True
+
+    def test_status_without_a_job_is_valid(self):
+        response = GenerationStatusResponse.model_validate(
+            {"project_status": "ready", "latest_ruleset_id": "rs_123", "job": None}
+        )
+        assert response.job is None
+        assert response.test_results is None
+
+    def test_cancellation_is_explicitly_a_failed_job_response(self):
+        response = GenerationCancellationResponse.model_validate(
+            {
+                "job_id": "job_123",
+                "status": "failed",
+                "project_released": True,
+                "detail": "Job record marked failed and its project ownership released.",
+            }
+        )
+        assert response.status == "failed"
+        assert response.project_released is True
 
 
 class TestDecideResponseAuditFields:
