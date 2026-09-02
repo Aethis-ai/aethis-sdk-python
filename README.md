@@ -250,7 +250,7 @@ with Aethis(api_key="ak_live_...") as client:
 
     # Explicit only: this is a destructive, cooperative request. It releases
     # the project but cannot interrupt an in-flight provider request.
-    cancelled = client.cancel_generation("proj_example")
+    cancelled = client.cancel_generation("proj_example", status.job.job_id)
     print(cancelled.detail)
 ```
 
@@ -268,7 +268,7 @@ Use `AsyncAethis` for the same HTTP-client methods with `await`.
 | `get_rulebook_schema` | Fetch a rulebook's combined field schema, plus its `robot_hints` (conversational-agent guidance) and `engine_version` (`RulebookSchemaResponse`) |
 | `explain_failure` | Diagnose a mismatched `/decide` — returns the failing criterion and a fix hint |
 | `get_generation_status` | Read the latest typed lifecycle telemetry for an authoring project; it never changes the job |
-| `cancel_generation` | Explicitly request cooperative cancellation of an active generation job (`GenerationCancellationResponse`) |
+| `cancel_generation` | Explicitly request cooperative cancellation of an observed generation job by project and job id (`GenerationCancellationResponse`) |
 | `list_rulesets` | Page the public ruleset catalogue (`RulesetSummary` items) |
 | `get_explanation` | Typed ruleset explanation (`ExplainResponse`) with resolved identity and `SourceReference` citations |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |

@@ -15,7 +15,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   return `GenerationStatusResponse`, including structured job progress,
   worker-heartbeat, lease/deadline, test, and terminal-failure telemetry.
 - `Aethis.cancel_generation()` / `AsyncAethis.cancel_generation()` explicitly
-  request cancellation of an active generation job and return
+  request cancellation of an observed generation job by project and job id,
+  preventing a delayed request from cancelling a successor job, and return
   `GenerationCancellationResponse`. Cancellation is cooperative: it fences the
   job and releases the project, while an in-flight provider request stops at
   its next safe boundary. The SDK never cancels, resumes, retries, or stores

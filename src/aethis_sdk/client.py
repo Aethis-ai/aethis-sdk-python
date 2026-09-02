@@ -278,16 +278,16 @@ class Aethis:
         resp = self._request("GET", _generation_status_path(project_id))
         return GenerationStatusResponse.model_validate(resp.json())
 
-    def cancel_generation(self, project_id: str) -> GenerationCancellationResponse:
-        """Request cooperative cancellation of the active generation job.
+    def cancel_generation(self, project_id: str, job_id: str) -> GenerationCancellationResponse:
+        """Request cooperative cancellation of the observed generation job.
 
         This explicit, destructive action marks the job failed and releases
-        project ownership. It cannot interrupt an in-flight provider request;
+        project ownership only when ``job_id`` still names that run. It cannot interrupt an in-flight provider request;
         that worker stops at its next safe boundary. Check
         :meth:`get_generation_status` first when deciding whether to cancel.
         Requires an API key with ``projects:write``.
         """
-        resp = self._request("POST", _cancel_generation_path(project_id))
+        resp = self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 
     def get_schema(self, ruleset_id: str) -> SchemaResponse:
@@ -546,14 +546,14 @@ class AsyncAethis:
         resp = await self._request("GET", _generation_status_path(project_id))
         return GenerationStatusResponse.model_validate(resp.json())
 
-    async def cancel_generation(self, project_id: str) -> GenerationCancellationResponse:
-        """Request cooperative cancellation of the active generation job.
+    async def cancel_generation(self, project_id: str, job_id: str) -> GenerationCancellationResponse:
+        """Request cooperative cancellation of the observed generation job.
 
         This method is explicit and destructive. It cannot interrupt an
         in-flight provider request; the worker stops at its next safe boundary.
         Requires an API key with ``projects:write``.
         """
-        resp = await self._request("POST", _cancel_generation_path(project_id))
+        resp = await self._request("POST", _cancel_generation_path(project_id), params={"job_id": job_id})
         return GenerationCancellationResponse.model_validate(resp.json())
 
     async def get_schema(self, ruleset_id: str) -> SchemaResponse:

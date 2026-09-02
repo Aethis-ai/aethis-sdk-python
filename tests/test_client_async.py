@@ -232,6 +232,7 @@ class TestGenerationRecovery:
         def handler(request: httpx.Request) -> httpx.Response:
             assert request.method == "POST"
             assert request.url.path == "/api/v1/public/projects/proj_123/generate/cancel"
+            assert request.url.params["job_id"] == "job_123"
             return httpx.Response(
                 200,
                 json={
@@ -243,7 +244,7 @@ class TestGenerationRecovery:
             )
 
         async with AsyncAethis(api_key="k", base_url="http://test", transport=httpx.MockTransport(handler)) as client:
-            response = await client.cancel_generation("proj_123")
+            response = await client.cancel_generation("proj_123", "job_123")
 
         assert isinstance(response, GenerationCancellationResponse)
         assert response.status == "failed"
