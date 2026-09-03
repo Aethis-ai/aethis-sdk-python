@@ -6,6 +6,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.13.0 (2026-09-02)
+
+### Added
+
+- Typed recovery support for asynchronous ruleset generation (aethis-core#481):
+  `Aethis.get_generation_status()` / `AsyncAethis.get_generation_status()` now
+  return `GenerationStatusResponse`, including structured job progress,
+  worker-heartbeat, lease/deadline, test, and terminal-failure telemetry.
+- `Aethis.cancel_generation()` / `AsyncAethis.cancel_generation()` explicitly
+  request cancellation of an observed generation job by project and job id,
+  preventing a delayed request from cancelling a successor job, and return
+  `GenerationCancellationResponse`. Cancellation is cooperative: it fences the
+  job and releases the project, while an in-flight provider request stops at
+  its next safe boundary. The SDK never cancels, resumes, retries, or stores
+  credentials on a caller's behalf. Requires the aethis-core generation-
+  recovery API to be live on the target API; earlier engine versions do not
+  advertise `generation_contract_version=1` and are refused before mutation.
+  Status exposes telemetry availability, server-authoritative worker lifecycle,
+  and retry readiness; cancellation distinguishes `cancelled` from the
+  idempotent `already_cancelled` outcome.
+
 ## 0.12.0 (2026-08-19)
 
 ### Added

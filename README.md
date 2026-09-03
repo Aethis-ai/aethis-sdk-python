@@ -244,13 +244,26 @@ a claim that the rule's reading of it is correct.
 
 ```python
 with Aethis(api_key="ak_live_...") as client:
-    # ruleset publishing endpoints — see the Aethis CLI for the
-    # full authoring workflow:
-    # https://github.com/Aethis-ai/aethis-cli
-    ...
+    status = client.get_generation_status("proj_example")
+    if status.job is not None:
+        print(status.job.status, status.job.seconds_since_progress)
+
+    # These top-level fields are authoritative. Retry only when readiness is
+    # "ready"; an old heartbeat by itself does not prove worker death.
+    print(status.telemetry_availability, status.worker_lifecycle)
+    print(status.retry_readiness)
+
+    # Explicit only: this is a destructive, cooperative request. It releases
+    # the project but cannot interrupt an in-flight provider request.
+    # The SDK rechecks generation_contract_version and this exact active job
+    # before sending the destructive request; old engines are refused.
+    cancelled = client.cancel_generation("proj_example", status.job.job_id)
+    print(cancelled.outcome, cancelled.detail)  # cancelled | already_cancelled
 ```
 
-The async equivalent is `DecisionSession` — same surface, `await` on the HTTP methods (`decide`, `is_eligible`, `next_question`, `status`).
+Use `AsyncAethis` for the same HTTP-client methods with `await`.
+`DecisionSession` remains the stateful async helper over `/decide` (`decide`,
+`is_eligible`, `next_question`, `status`).
 
 ## What's included
 
@@ -261,6 +274,8 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 | `get_graph` | Fetch a ruleset's field → criterion → group → outcome dependency graph, plus a rendered Mermaid diagram (`GraphResponse`) |
 | `get_rulebook_schema` | Fetch a rulebook's combined field schema, plus its `robot_hints` (conversational-agent guidance) and `engine_version` (`RulebookSchemaResponse`) |
 | `explain_failure` | Diagnose a mismatched `/decide` — returns the failing criterion and a fix hint |
+| `get_generation_status` | Read the latest typed lifecycle telemetry for an authoring project; it never changes the job |
+| `cancel_generation` | Explicitly request cooperative cancellation of an observed generation job by project and job id (`GenerationCancellationResponse`) |
 | `list_rulesets` | Page the public ruleset catalogue (`RulesetSummary` items) |
 | `get_explanation` | Typed ruleset explanation (`ExplainResponse`) with resolved identity and `SourceReference` citations |
 | `SyncDecisionSession`, `DecisionSession` | Stateful adapters over the stateless `/decide` endpoint |
@@ -281,7 +296,11 @@ The async equivalent is `DecisionSession` — same surface, `await` on the HTTP 
 
 ## Status
 
-Pre-1.0. The decision surface (`/decide`, `/schema`) is stable; authoring endpoints (projects, rulesets, publishing) are not yet exposed here — use the [Aethis CLI](https://github.com/Aethis-ai/aethis-cli) for those.
+Pre-1.0. The decision surface (`/decide`, `/schema`) is stable. The SDK also
+exposes the narrow authoring recovery surface (`get_generation_status` and
+explicit `cancel_generation`); it does not submit, resume, or automatically
+cancel generation jobs. Use the [Aethis CLI](https://github.com/Aethis-ai/aethis-cli)
+for the full authoring workflow.
 
 ## Verifying a release
 
