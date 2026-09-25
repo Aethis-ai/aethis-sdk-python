@@ -276,6 +276,16 @@ def _require_content_identity(
     )
 
 
+class PendingReview(BaseModel):
+    """An authored review point within an exact decision content identity."""
+
+    review_id: str
+    criterion_id: str
+    section_id: str | None = None
+    title: str
+    reason: str | None = None
+
+
 class DecideResponse(BaseModel):
     """Response body from ``POST /api/v1/public/decide``.
 
@@ -306,6 +316,8 @@ class DecideResponse(BaseModel):
     success from the absence of ``next_question``.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     decision: Decision
     ruleset_id: str | None = None
     rulebook_id: str | None = None
@@ -324,6 +336,11 @@ class DecideResponse(BaseModel):
     missing_fields: list[str] | None = None
     next_question: NextQuestion | None = None
     optimal_path: list[NextQuestion] | None = None
+    pending_reviews: list[PendingReview] | None = None
+    undetermined_reason: str | None = None
+    # Keep the existing content_identity property (a typed leaf identity).
+    # The wire token also identifies composed rulebooks and qualifies review_id.
+    decision_content_identity: str | None = Field(default=None, alias="content_identity")
     field_errors: dict[str, str] | None = None
     trace: dict[str, Any] | None = None
     explanation: dict[str, Any] | None = None
@@ -348,6 +365,12 @@ class DecideResponse(BaseModel):
         return normalise_content_digest(value)
 
     # -- contract enforcement -------------------------------------------
+
+    @model_validator(mode="after")
+    def _enforce_pending_review_contract(self) -> "DecideResponse":
+        if self.pending_reviews and self.decision != "undetermined":
+            raise AethisContractViolation("A terminal decision cannot carry pending human reviews.")
+        return self
 
     @model_validator(mode="after")
     def _enforce_blocking_error_contract(self) -> "DecideResponse":
@@ -779,6 +802,7 @@ __all__ = [
     "GenerationTestCaseResult",
     "GraphResponse",
     "NextQuestion",
+    "PendingReview",
     "RateLimit",
     "ReplayIdentity",
     "RollingUsage",
