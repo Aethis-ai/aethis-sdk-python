@@ -6,6 +6,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.14.0 (2026-09-25)
+
+### Added
+
+- Typed `ReviewPoint` catalogues on leaf and composed schemas, with optional
+  `ReviewResolution` mappings on catalogue and pending entries. Strict Boolean
+  results and explicit null (unresolved) values survive serialization.
+- Preserve the immutable rulebook release envelope on schema, decision and
+  session responses, including its stronger content identity and member identities.
+- Typed `PendingReview` entries and `undetermined_reason` on decision responses
+  and session status. `decision_content_identity` preserves the engine's wire
+  identity token, which qualifies review identifiers for a specific ruleset or
+  rulebook version. Existing responses without these fields remain valid.
+
 ## 0.13.0 (2026-09-02)
 
 ### Added

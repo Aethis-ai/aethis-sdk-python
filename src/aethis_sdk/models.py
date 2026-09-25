@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from aethis_sdk.errors import (
     AethisContractViolation,
@@ -276,6 +276,28 @@ def _require_content_identity(
     )
 
 
+class ReviewResolution(BaseModel):
+    """Authored field outcomes; null keeps review unresolved, not completed."""
+
+    field_id: str = Field(min_length=1, strict=True)
+    outcomes: dict[str, StrictBool | None] = Field(min_length=1)
+
+
+class ReviewPoint(BaseModel):
+    """An authored review point within an exact content identity."""
+
+    review_id: str
+    criterion_id: str
+    section_id: str | None = None
+    title: str
+    reason: str | None = None
+    resolution: ReviewResolution | None = None
+
+
+class PendingReview(ReviewPoint):
+    """An unresolved, outcome-relevant review point."""
+
+
 class DecideResponse(BaseModel):
     """Response body from ``POST /api/v1/public/decide``.
 
@@ -306,6 +328,8 @@ class DecideResponse(BaseModel):
     success from the absence of ``next_question``.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     decision: Decision
     ruleset_id: str | None = None
     rulebook_id: str | None = None
@@ -324,6 +348,13 @@ class DecideResponse(BaseModel):
     missing_fields: list[str] | None = None
     next_question: NextQuestion | None = None
     optimal_path: list[NextQuestion] | None = None
+    pending_reviews: list[PendingReview] | None = None
+    undetermined_reason: str | None = None
+    # Keep the existing content_identity property (a typed leaf identity).
+    # The wire token also identifies composed rulebooks and qualifies review_id.
+    decision_content_identity: str | None = Field(default=None, alias="content_identity")
+    # Preserve the immutable release envelope, including its stronger content identity.
+    release: dict[str, Any] | None = None
     field_errors: dict[str, str] | None = None
     trace: dict[str, Any] | None = None
     explanation: dict[str, Any] | None = None
@@ -348,6 +379,12 @@ class DecideResponse(BaseModel):
         return normalise_content_digest(value)
 
     # -- contract enforcement -------------------------------------------
+
+    @model_validator(mode="after")
+    def _enforce_pending_review_contract(self) -> "DecideResponse":
+        if self.pending_reviews and self.decision != "undetermined":
+            raise AethisContractViolation("A terminal decision cannot carry pending human reviews.")
+        return self
 
     @model_validator(mode="after")
     def _enforce_blocking_error_contract(self) -> "DecideResponse":
@@ -529,6 +566,7 @@ class SchemaResponse(BaseModel):
     slug: str | None = None
     name: str | None = None
     fields: list[SchemaField]
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     ruleset_version: str | None = None
     content_digest: str | None = None
     engine_version: str | None = None
@@ -565,8 +603,10 @@ class RulebookSchemaResponse(BaseModel):
     """
 
     rulebook_id: str
+    release: dict[str, Any] | None = None
     sections: list[str] = Field(default_factory=list)
     fields: list[SchemaField] = Field(default_factory=list)
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     robot_hints: dict[str, str] | None = None
     engine_version: str | None = None
 
@@ -779,6 +819,9 @@ __all__ = [
     "GenerationTestCaseResult",
     "GraphResponse",
     "NextQuestion",
+    "PendingReview",
+    "ReviewPoint",
+    "ReviewResolution",
     "RateLimit",
     "ReplayIdentity",
     "RollingUsage",
