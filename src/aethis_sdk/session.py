@@ -39,6 +39,7 @@ class SessionStatus:
     pending_reviews: list[PendingReview] = field(default_factory=list)
     undetermined_reason: str | None = None
     decision_content_identity: str | None = None
+    release: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.pending_reviews and self.decision != "undetermined":
@@ -127,6 +128,7 @@ class _SessionState:
             pending_reviews=list(resp.pending_reviews or []),
             undetermined_reason=resp.undetermined_reason,
             decision_content_identity=resp.decision_content_identity,
+            release=resp.release,
         )
 
     def _resolve_next_question(self, resp: DecideResponse) -> SchemaField | None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from aethis_sdk.errors import (
     AethisContractViolation,
@@ -276,14 +276,26 @@ def _require_content_identity(
     )
 
 
-class PendingReview(BaseModel):
-    """An authored review point within an exact decision content identity."""
+class ReviewResolution(BaseModel):
+    """Authored field outcomes; null keeps review unresolved, not completed."""
+
+    field_id: str = Field(min_length=1, strict=True)
+    outcomes: dict[str, StrictBool | None] = Field(min_length=1)
+
+
+class ReviewPoint(BaseModel):
+    """An authored review point within an exact content identity."""
 
     review_id: str
     criterion_id: str
     section_id: str | None = None
     title: str
     reason: str | None = None
+    resolution: ReviewResolution | None = None
+
+
+class PendingReview(ReviewPoint):
+    """An unresolved, outcome-relevant review point."""
 
 
 class DecideResponse(BaseModel):
@@ -341,6 +353,8 @@ class DecideResponse(BaseModel):
     # Keep the existing content_identity property (a typed leaf identity).
     # The wire token also identifies composed rulebooks and qualifies review_id.
     decision_content_identity: str | None = Field(default=None, alias="content_identity")
+    # Preserve the immutable release envelope, including its stronger content identity.
+    release: dict[str, Any] | None = None
     field_errors: dict[str, str] | None = None
     trace: dict[str, Any] | None = None
     explanation: dict[str, Any] | None = None
@@ -552,6 +566,7 @@ class SchemaResponse(BaseModel):
     slug: str | None = None
     name: str | None = None
     fields: list[SchemaField]
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     ruleset_version: str | None = None
     content_digest: str | None = None
     engine_version: str | None = None
@@ -588,8 +603,10 @@ class RulebookSchemaResponse(BaseModel):
     """
 
     rulebook_id: str
+    release: dict[str, Any] | None = None
     sections: list[str] = Field(default_factory=list)
     fields: list[SchemaField] = Field(default_factory=list)
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     robot_hints: dict[str, str] | None = None
     engine_version: str | None = None
 
@@ -803,6 +820,8 @@ __all__ = [
     "GraphResponse",
     "NextQuestion",
     "PendingReview",
+    "ReviewPoint",
+    "ReviewResolution",
     "RateLimit",
     "ReplayIdentity",
     "RollingUsage",
