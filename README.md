@@ -189,6 +189,9 @@ with Aethis() as client:
         if status.is_complete:                 # a real verdict
             break
         if status.next_question is None:       # undetermined on these answers
+            # undetermined on these answers; status.undetermined_reason says
+            # why (e.g. "exhausted", or "awaiting_review" when only a
+            # reviewer can move it). It is None on older engines.
             break
         answer = input(f"{status.next_question.question} ")
         session.answer(status.next_question.field_id, answer)
@@ -208,6 +211,14 @@ success. `status.blocked` and `status.is_complete` tell them apart:
 | Finished with a verdict | `False` | `True` | `None` |
 | Undetermined on these answers | `False` | `False` | `None` |
 | **Blocked by input errors** | **`True`** | **`False`** | **`None`** |
+
+Pending human review is reported on `status.pending_reviews`
+(`status.has_pending_reviews`). It never counts as completion, and it does not
+stop the interview: keep going while `next_question` is set. When
+`next_question` is `None`, `status.undetermined_reason` says why (for example
+`"exhausted"`, or `"awaiting_review"` when only a reviewer can move the case);
+it is `None` on older engines. Match pending entries to the schema's
+`review_points` by `review_id`.
 
 `status.field_errors` is always a dict (empty when clean) and
 `status.replay_identity` carries the resolved identity of the content that
