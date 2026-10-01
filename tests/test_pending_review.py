@@ -75,6 +75,19 @@ class TestDecideResponse:
         with pytest.raises(AethisContractViolation):
             DecideResponse.model_validate(_pending(decision=decision, undetermined_reason=None))
 
+    def test_omitted_section_id_parses_as_none(self):
+        point = {k: v for k, v in POINT.items() if k != "section_id"}
+        entry = DecideResponse.model_validate(_pending(pending_reviews=[point])).pending_reviews[0]
+        assert entry.section_id is None
+
+    def test_pending_entry_matches_catalogue_point_by_review_id(self):
+        entry = DecideResponse.model_validate(_pending()).pending_reviews[0]
+        point = SchemaResponse.model_validate(
+            {"ruleset_id": "policy:v1", "fields": [], "review_points": [POINT]}
+        ).review_points[0]
+        assert entry.review_id == point.review_id
+        assert entry != point  # distinct types: join on review_id, not equality
+
     def test_pending_entry_without_resolution_has_none(self):
         assert DecideResponse.model_validate(_pending()).pending_reviews[0].resolution is None
 
@@ -98,7 +111,7 @@ class TestReviewResolution:
         with pytest.raises(ValidationError):
             ReviewResolution(field_id="review.record", outcomes={"approved": bad})
 
-    @pytest.mark.parametrize("bad", [1, None, "", [], {}])
+    @pytest.mark.parametrize("bad", [1, None, "", [], {}, b"x"])
     def test_field_id_must_be_a_nonempty_string(self, bad):
         with pytest.raises(ValidationError):
             ReviewResolution(field_id=bad, outcomes={"approved": True})
@@ -148,7 +161,7 @@ class TestSessions:
         assert status.pending_reviews == [PendingReview(**POINT)]
         assert status.undetermined_reason == "awaiting_review"
         assert status.decision_content_identity == WIRE_IDENTITY
-        assert status.awaiting_review
+        assert status.has_pending_reviews
         assert not status.is_complete
 
     async def test_async_session_exposes_pending_review_and_is_not_complete(self):
@@ -157,7 +170,7 @@ class TestSessions:
             status = await session.status()
         assert status.pending_reviews == [PendingReview(**POINT)]
         assert status.undetermined_reason == "awaiting_review"
-        assert status.awaiting_review
+        assert status.has_pending_reviews
         assert not status.is_complete
 
     def test_sync_session_keeps_null_resolution_outcome(self):
@@ -182,7 +195,7 @@ class TestSessions:
             status = session.status()
         assert status.pending_reviews == []
         assert status.undetermined_reason is None
-        assert not status.awaiting_review
+        assert not status.has_pending_reviews
 
     def test_terminal_status_cannot_be_built_with_pending_reviews(self):
         from aethis_sdk.session import SessionStatus
@@ -195,3 +208,32 @@ class TestSessions:
                 trace=None,
                 pending_reviews=[PendingReview(**POINT)],
             )
+
+
+def _more_to_ask():
+    return _pending(
+        undetermined_reason="more_to_ask",
+        next_question={"field_id": "age", "question": "How old are you?", "weight": 1, "notes": []},
+        missing_fields=["age"],
+    )
+
+
+class TestReviewsBesideQuestions:
+    def test_sync_pending_reviews_do_not_hide_next_question(self):
+        client, session, _ = _make_sync_session([_more_to_ask()])
+        with client:
+            status = session.status()
+        assert status.has_pending_reviews
+        assert status.undetermined_reason == "more_to_ask"
+        assert status.next_question is not None
+        assert status.next_question.field_id == "age"
+        assert not status.is_complete
+
+    async def test_async_pending_reviews_do_not_hide_next_question(self):
+        client, session, _ = _make_async_session([_more_to_ask()])
+        async with client:
+            status = await session.status()
+        assert status.has_pending_reviews
+        assert status.undetermined_reason == "more_to_ask"
+        assert status.next_question is not None
+        assert not status.is_complete

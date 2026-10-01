@@ -189,6 +189,8 @@ with Aethis() as client:
         if status.is_complete:                 # a real verdict
             break
         if status.next_question is None:       # undetermined on these answers
+            # status.undetermined_reason == "awaiting_review": nothing left to
+            # ask; the case is waiting on a human reviewer
             break
         answer = input(f"{status.next_question.question} ")
         session.answer(status.next_question.field_id, answer)
@@ -208,6 +210,14 @@ success. `status.blocked` and `status.is_complete` tell them apart:
 | Finished with a verdict | `False` | `True` | `None` |
 | Undetermined on these answers | `False` | `False` | `None` |
 | **Blocked by input errors** | **`True`** | **`False`** | **`None`** |
+| Waiting only on a reviewer (`undetermined_reason == "awaiting_review"`) | `False` | `False` | `None` |
+
+Pending human review is reported on `status.pending_reviews`
+(`status.has_pending_reviews`). It never counts as completion, and it can be
+non-empty while `next_question` is still set: keep asking useful questions until
+`undetermined_reason` becomes `"awaiting_review"`, which means nothing is left to
+ask and the case is waiting on a reviewer. Match pending entries to the schema's
+`review_points` by `review_id`.
 
 `status.field_errors` is always a dict (empty when clean) and
 `status.replay_identity` carries the resolved identity of the content that
