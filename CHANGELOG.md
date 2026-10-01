@@ -6,6 +6,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.14.0 (2026-10-01)
+
+### Added
+
+- Pending human review on decisions (aethis-core#628, #649). `DecideResponse`
+  now carries typed `pending_reviews` (`PendingReview`), `undetermined_reason`
+  (a plain string, so reasons added later still parse) and
+  `decision_content_identity`, the wire `content_identity` token that qualifies
+  each `review_id`. The existing typed `content_identity` property is unchanged.
+- `ReviewResolution` binds a review point to an existing completion field with
+  strict Boolean outcomes. A `null` outcome means unresolved and is never a
+  completion choice; coerced values (`"true"`, `1`, `0`) are rejected.
+- `review_points` catalogue (`ReviewPoint`) on `SchemaResponse` and
+  `RulebookSchemaResponse`; empty when the engine predates it.
+- `SessionStatus` (sync and async sessions) exposes `pending_reviews`,
+  `undetermined_reason`, `decision_content_identity` and `awaiting_review`.
+  A pending review never counts as completion, and a terminal decision beside
+  pending reviews raises `AethisContractViolation`.
+- Responses without the new fields remain valid.
+
 ## 0.13.0 (2026-09-02)
 
 ### Added

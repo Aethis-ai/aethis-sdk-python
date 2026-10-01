@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from aethis_sdk.errors import (
     AethisContractViolation,
@@ -276,6 +276,40 @@ def _require_content_identity(
     )
 
 
+class ReviewResolution(BaseModel):
+    """Authored mapping from a review point to an existing completion field.
+
+    ``outcomes`` maps each permitted result to a strict Boolean, or to ``None``
+    when that result leaves the review unresolved. ``None`` is never a
+    completion choice, and nothing is coerced: ``"true"``, ``1`` and ``0`` are
+    rejected rather than read as Booleans.
+    """
+
+    field_id: str = Field(min_length=1, strict=True)
+    outcomes: dict[str, StrictBool | None] = Field(min_length=1)
+
+
+class ReviewPoint(BaseModel):
+    """An authored human-review point.
+
+    ``review_id`` is only meaningful alongside the content identity of the
+    response or schema that carried it; it is not a permanent cross-version id.
+    ``resolution`` is absent unless the author bound the point to a completion
+    field. Being listed does not record a reviewer's decision.
+    """
+
+    review_id: str
+    criterion_id: str
+    section_id: str | None = None
+    title: str
+    reason: str | None = None
+    resolution: ReviewResolution | None = None
+
+
+class PendingReview(ReviewPoint):
+    """A review point still relevant to an undetermined decision."""
+
+
 class DecideResponse(BaseModel):
     """Response body from ``POST /api/v1/public/decide``.
 
@@ -306,6 +340,8 @@ class DecideResponse(BaseModel):
     success from the absence of ``next_question``.
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     decision: Decision
     ruleset_id: str | None = None
     rulebook_id: str | None = None
@@ -324,6 +360,14 @@ class DecideResponse(BaseModel):
     missing_fields: list[str] | None = None
     next_question: NextQuestion | None = None
     optimal_path: list[NextQuestion] | None = None
+    # Pending human review never implies completion: the decision stays
+    # undetermined. A plain string, so a reason added by a newer engine parses.
+    pending_reviews: list[PendingReview] | None = None
+    undetermined_reason: str | None = None
+    # The wire ``content_identity`` token: the leaf content digest, or a
+    # rulebook composition key. It qualifies ``pending_reviews[].review_id``.
+    # Kept apart from the typed :attr:`content_identity` property below.
+    decision_content_identity: str | None = Field(default=None, alias="content_identity")
     field_errors: dict[str, str] | None = None
     trace: dict[str, Any] | None = None
     explanation: dict[str, Any] | None = None
@@ -348,6 +392,15 @@ class DecideResponse(BaseModel):
         return normalise_content_digest(value)
 
     # -- contract enforcement -------------------------------------------
+
+    @model_validator(mode="after")
+    def _enforce_pending_review_contract(self) -> "DecideResponse":
+        if self.pending_reviews and self.decision != _NON_TERMINAL_DECISION:
+            raise AethisContractViolation(
+                f"Response reports decision={self.decision!r} beside pending human reviews. "
+                "A conforming engine leaves the decision undetermined while a review is pending."
+            )
+        return self
 
     @model_validator(mode="after")
     def _enforce_blocking_error_contract(self) -> "DecideResponse":
@@ -529,6 +582,7 @@ class SchemaResponse(BaseModel):
     slug: str | None = None
     name: str | None = None
     fields: list[SchemaField]
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     ruleset_version: str | None = None
     content_digest: str | None = None
     engine_version: str | None = None
@@ -567,6 +621,7 @@ class RulebookSchemaResponse(BaseModel):
     rulebook_id: str
     sections: list[str] = Field(default_factory=list)
     fields: list[SchemaField] = Field(default_factory=list)
+    review_points: list[ReviewPoint] = Field(default_factory=list)
     robot_hints: dict[str, str] | None = None
     engine_version: str | None = None
 
@@ -779,6 +834,9 @@ __all__ = [
     "GenerationTestCaseResult",
     "GraphResponse",
     "NextQuestion",
+    "PendingReview",
+    "ReviewPoint",
+    "ReviewResolution",
     "RateLimit",
     "ReplayIdentity",
     "RollingUsage",

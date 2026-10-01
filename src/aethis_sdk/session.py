@@ -8,7 +8,7 @@ from typing import Any
 from aethis_sdk.client import Aethis, AsyncAethis
 from aethis_sdk.errors import AethisContractViolation, AethisFieldErrors
 from aethis_sdk.identity import ReplayIdentity
-from aethis_sdk.models import DecideResponse, Decision, SchemaField, SchemaResponse
+from aethis_sdk.models import DecideResponse, Decision, PendingReview, SchemaField, SchemaResponse
 
 _TERMINAL_DECISIONS = ("eligible", "not_eligible")
 
@@ -36,8 +36,16 @@ class SessionStatus:
     trace: dict[str, Any] | None
     field_errors: dict[str, str] = field(default_factory=dict)
     replay_identity: ReplayIdentity | None = None
+    pending_reviews: list[PendingReview] = field(default_factory=list)
+    undetermined_reason: str | None = None
+    decision_content_identity: str | None = None
 
     def __post_init__(self) -> None:
+        if self.pending_reviews and self.decision != "undetermined":
+            raise AethisContractViolation(
+                f"SessionStatus cannot report decision={self.decision!r} with pending human reviews: "
+                "a pending review always leaves the decision undetermined."
+            )
         if self.field_errors and self.decision != "undetermined":
             raise AethisContractViolation(
                 f"SessionStatus cannot report decision={self.decision!r} with blocking field "
@@ -49,6 +57,14 @@ class SessionStatus:
     def blocked(self) -> bool:
         """True when the latest decision carried blocking input errors."""
         return bool(self.field_errors)
+
+    @property
+    def awaiting_review(self) -> bool:
+        """True when authored human-review points remain relevant.
+
+        Never completion: a pending review leaves :attr:`is_complete` False.
+        """
+        return bool(self.pending_reviews)
 
     @property
     def is_complete(self) -> bool:
@@ -119,6 +135,9 @@ class _SessionState:
             trace=resp.trace,
             field_errors=resp.blocking_errors,
             replay_identity=resp.replay_identity,
+            pending_reviews=list(resp.pending_reviews or []),
+            undetermined_reason=resp.undetermined_reason,
+            decision_content_identity=resp.decision_content_identity,
         )
 
     def _resolve_next_question(self, resp: DecideResponse) -> SchemaField | None:
