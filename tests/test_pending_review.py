@@ -86,7 +86,7 @@ class TestDecideResponse:
             {"ruleset_id": "policy:v1", "fields": [], "review_points": [POINT]}
         ).review_points[0]
         assert entry.review_id == point.review_id
-        assert entry != point  # distinct types: join on review_id, not equality
+        assert entry != point  # documents intent: distinct types: join on review_id, not equality
 
     def test_pending_entry_without_resolution_has_none(self):
         assert DecideResponse.model_validate(_pending()).pending_reviews[0].resolution is None
@@ -236,4 +236,5 @@ class TestReviewsBesideQuestions:
         assert status.has_pending_reviews
         assert status.undetermined_reason == "more_to_ask"
         assert status.next_question is not None
+        assert status.next_question.field_id == "age"
         assert not status.is_complete

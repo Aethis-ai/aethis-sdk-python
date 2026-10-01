@@ -62,11 +62,13 @@ class SessionStatus:
     def has_pending_reviews(self) -> bool:
         """True when authored human-review points remain relevant.
 
-        This can be True while :attr:`next_question` is still set: the engine
-        may report pending reviews alongside ``undetermined_reason ==
-        "more_to_ask"``, and useful applicant questions should keep being
-        asked. A case waiting only on a reviewer has ``undetermined_reason ==
-        "awaiting_review"``. Never completion: :attr:`is_complete` stays False.
+        This can be True while :attr:`next_question` is still set: pending
+        reviews may accompany further applicant questions (for example
+        ``undetermined_reason == "more_to_ask"``), and the interview continues
+        while ``next_question`` is set. ``undetermined_reason == "awaiting_review"``
+        means only a reviewer can move the case, but other reasons can take
+        precedence over it and older engines send ``None``. Never completion:
+        :attr:`is_complete` stays False.
         Match entries to the schema's ``review_points`` by ``review_id``.
         """
         return bool(self.pending_reviews)

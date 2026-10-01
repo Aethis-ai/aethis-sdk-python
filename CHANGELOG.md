@@ -22,8 +22,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `RulebookSchemaResponse`; empty when the engine predates it.
 - `SessionStatus` (sync and async sessions) exposes `pending_reviews`,
   `undetermined_reason`, `decision_content_identity` and `has_pending_reviews`. Pending reviews can
-  accompany further questions (`undetermined_reason == "more_to_ask"`); a case
-  waiting only on a reviewer reports `undetermined_reason == "awaiting_review"`.
+  accompany further questions; `undetermined_reason == "awaiting_review"` means
+  only a reviewer can move the case.
   A pending review never counts as completion, and a terminal decision beside
   pending reviews raises `AethisContractViolation`.
 - Responses without the new fields remain valid.
