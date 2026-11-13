@@ -20,6 +20,9 @@ def make_next_question(**overrides: Any) -> dict[str, Any]:
         "enum_values": None,
         "x_ui_widget": None,
         "notes": [],
+        "elicitation_owner": None,
+        "recoverable_from": None,
+        "sections": None,
     }
     base.update(overrides)
     return base
@@ -54,6 +57,14 @@ def make_decide_response(**overrides: Any) -> dict[str, Any]:
         # sees the fixture as a superset of reality rather than stale.
         "graph_overlay": None,
         "timing": None,
+        "content_identity": None,
+        "release": None,
+        "complete_determination": None,
+        "pending_non_applicant_input": None,
+        "pending_reviews": None,
+        "undetermined_reason": None,
+        "graph_overlay_error": None,
+        "choice_context": None,
     }
     base.update(overrides)
     return base
@@ -77,6 +88,14 @@ def _schema_field(
         "notes": [],
         "weight": 1,
         "x_ui_widget": None,
+        "canonical_field": None,
+        "elicitation_owner": None,
+        "enum_labels": None,
+        "injection_phase": None,
+        "injection_source": None,
+        "label": None,
+        "options_by": None,
+        "recoverable_from": None,
     }
 
 
@@ -102,6 +121,9 @@ def make_schema_response(**overrides: Any) -> dict[str, Any]:
                 enum_values=["uk", "non_uk"],
             ),
         ],
+        "content_identity": None,
+        "release": None,
+        "review_points": [],
     }
     base.update(overrides)
     return base
