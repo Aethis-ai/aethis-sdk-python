@@ -129,8 +129,13 @@ class KeyMinter:
 
     def __init__(self, cfg: StagingConfig) -> None:
         self._cfg = cfg
-        self._jwt = _clerk_jwt(cfg)
         self._minted: list[str] = []
+
+    @property
+    def _jwt(self) -> str:
+        # Clerk session tokens are short-lived; a lane that runs for minutes
+        # must not reuse the one fetched at start, so fetch a fresh one per use.
+        return _clerk_jwt(self._cfg)
 
     def mint(self, name_suffix: str, scopes: list[str] | None = None) -> MintedKey:
         name = f"{KEY_NAME_PREFIX}{name_suffix}"
