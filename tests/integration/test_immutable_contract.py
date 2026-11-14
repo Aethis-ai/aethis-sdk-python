@@ -21,7 +21,7 @@ from aethis_sdk import (
     AsyncAethis,
     SourceReference,
 )
-from tests.integration.conftest import SHOWCASE_RULESET_ID, SHOWCASE_SLUG
+from tests.integration.conftest import SHOWCASE_SLUG
 
 pytestmark = pytest.mark.staging
 
@@ -55,7 +55,9 @@ class TestResolvedIdentityLive:
     def test_a_ruleset_id_call_resolves_the_same_identity_as_the_slug(self, base_url: str) -> None:
         with Aethis(base_url=base_url) as client:
             by_slug = client.decide(SHOWCASE_SLUG, {})
-            by_id = client.decide(SHOWCASE_RULESET_ID, {})
+            # A slug tracks the latest release, so compare against the id the
+            # slug itself resolved to, not a pinned historical id.
+            by_id = client.decide(by_slug.ruleset_id, {})
         assert by_slug.require_replay_identity().content == by_id.require_replay_identity().content
 
 

@@ -13,6 +13,7 @@ session fixture, which errors the staging tests loudly rather than skipping them
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -25,6 +26,13 @@ from tests.integration._auth import KeyMinter, MintedKey, StagingConfig
 # content (that executes internal-only; see immigration-internal-only rule).
 SHOWCASE_SLUG = "aethis/construction-all-risks"
 SHOWCASE_RULESET_ID = os.environ.get("AETHIS_SHOWCASE_RULESET_ID", "construction-all-risks:20260412-gold")
+
+
+@pytest.fixture(autouse=True)
+def _stay_under_anonymous_rate_limit() -> Iterator[None]:
+    """Anonymous calls are limited to 20 per minute; pace the lane under it."""
+    yield
+    time.sleep(3.5)
 
 
 @pytest.fixture(scope="session")

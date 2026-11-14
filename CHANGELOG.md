@@ -6,6 +6,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.14.1 (2026-11-13)
+
+### Fixed
+
+- Nightly staging lane: refreshed the test fixtures to the current engine
+  payload shape, resolved the slug-versus-id identity check against the id the
+  slug resolves to (a slug tracks the latest release), and paced anonymous
+  calls under the 20 per minute limit, and fetched a fresh session token for
+  each key operation instead of reusing one for the whole run. No change to the SDK itself.
+
 ## 0.14.0 (2026-10-01)
 
 ### Added
