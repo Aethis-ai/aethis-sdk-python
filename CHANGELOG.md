@@ -6,6 +6,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## 0.14.2 (2026-11-19)
+
+### Fixed
+
+- CI: the macOS hermetic-install leg now runs on `macos-15`, because the `macos-14` runner label is no longer supported. No change to the SDK itself.
+- Nightly staging lane: pace by requests sent in the last minute instead of a fixed pause after each test, so a test that makes several calls no longer exceeds the anonymous 20 per minute limit. No change to the SDK itself.
+
 ## 0.14.1 (2026-11-13)
 
 ### Fixed
