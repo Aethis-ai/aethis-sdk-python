@@ -12,10 +12,13 @@ session fixture, which errors the staging tests loudly rather than skipping them
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
+from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 import pytest
@@ -28,11 +31,49 @@ SHOWCASE_SLUG = "aethis/construction-all-risks"
 SHOWCASE_RULESET_ID = os.environ.get("AETHIS_SHOWCASE_RULESET_ID", "construction-all-risks:20260412-gold")
 
 
-@pytest.fixture(autouse=True)
+# Anonymous calls are limited to 20 per minute. A fixed sleep per test is not
+# enough: a test that makes several calls (or a fast staging) tips over it. So
+# every request the lane sends is counted in a sliding window and held back
+# until it fits, which holds however many calls a test makes.
+_WINDOW_SECONDS = 60.0
+_MAX_PER_WINDOW = 16  # headroom under the 20 per minute limit
+_sent: deque[float] = deque()
+
+
+def _wait_needed() -> float:
+    """Seconds to wait before another request fits in the window; records it when none."""
+    now = time.monotonic()
+    while _sent and now - _sent[0] >= _WINDOW_SECONDS:
+        _sent.popleft()
+    if len(_sent) >= _MAX_PER_WINDOW:
+        return _WINDOW_SECONDS - (now - _sent[0]) + 0.1
+    _sent.append(now)
+    return 0.0
+
+
+@pytest.fixture(autouse=True, scope="session")
 def _stay_under_anonymous_rate_limit() -> Iterator[None]:
-    """Anonymous calls are limited to 20 per minute; pace the lane under it."""
-    yield
-    time.sleep(3.5)
+    """Pace every request the lane sends under the anonymous rate limit."""
+    original_sync = httpx.Client.send
+    original_async = httpx.AsyncClient.send
+
+    def paced_sync(self: httpx.Client, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+        while (wait := _wait_needed()) > 0:
+            time.sleep(wait)
+        return original_sync(self, request, **kwargs)
+
+    async def paced_async(self: httpx.AsyncClient, request: httpx.Request, **kwargs: Any) -> httpx.Response:
+        while (wait := _wait_needed()) > 0:
+            await asyncio.sleep(wait)
+        return await original_async(self, request, **kwargs)
+
+    httpx.Client.send = paced_sync  # type: ignore[method-assign]
+    httpx.AsyncClient.send = paced_async  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        httpx.Client.send = original_sync  # type: ignore[method-assign]
+        httpx.AsyncClient.send = original_async  # type: ignore[method-assign]
 
 
 @pytest.fixture(scope="session")
