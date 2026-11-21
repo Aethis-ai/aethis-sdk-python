@@ -566,6 +566,16 @@ class SchemaField(BaseModel):
     enum_values: list[str] | None = None
     enum_labels: dict[str, str] | None = None
     canonical_field: str | None = None
+    # Authored opening-question metadata; the SDK preserves the declaration
+    # without imposing a conversation policy on callers.
+    asked_by_opening: Literal[True] | None = None
+
+    @field_validator("asked_by_opening", mode="before")
+    @classmethod
+    def _opening_declaration_is_literal_true(cls, value: Any) -> Literal[True] | None:
+        if value is not None and value is not True:
+            raise ValueError("asked_by_opening must be the boolean true or null")
+        return value
 
 
 class SchemaResponse(BaseModel):

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
 from aethis_sdk import (
     DecideResponse,
     FieldNote,
@@ -554,6 +559,51 @@ class TestDecideResponseGraphOverlay:
         overlay = {"nodes": [{"id": "criterion:period_valid", "overlay": {"status": "satisfied"}}]}
         resp = DecideResponse.model_validate({"decision": "eligible", "graph_overlay": overlay})
         assert resp.graph_overlay == overlay
+
+
+class TestOpeningSchemaMetadata:
+    @pytest.mark.parametrize("response_model", [SchemaResponse, RulebookSchemaResponse])
+    def test_opening_marker_survives_response_parsing_and_json_round_trip(
+        self, response_model: type[SchemaResponse] | type[RulebookSchemaResponse]
+    ) -> None:
+        payload = {
+            "ruleset_id": "rs_example",
+            "rulebook_id": "rb_example",
+            "fields": [{"field_id": "person.name", "field_type": "string", "asked_by_opening": True}],
+        }
+        response = response_model.model_validate(payload)
+        assert response.fields[0].asked_by_opening is True
+        restored = response_model.model_validate_json(response.model_dump_json())
+        assert restored.fields[0].asked_by_opening is True
+        assert restored.model_dump()["fields"][0]["asked_by_opening"] is True
+
+    @pytest.mark.parametrize("response_model", [SchemaResponse, RulebookSchemaResponse])
+    @pytest.mark.parametrize("declaration", [{}, {"asked_by_opening": None}])
+    def test_legacy_or_null_marker_remains_undeclared(
+        self, response_model: type[SchemaResponse] | type[RulebookSchemaResponse], declaration: dict[str, Any]
+    ) -> None:
+        response = response_model.model_validate(
+            {
+                "ruleset_id": "rs_example",
+                "rulebook_id": "rb_example",
+                "fields": [{"field_id": "person.name", "field_type": "string", **declaration}],
+            }
+        )
+        assert response.fields[0].asked_by_opening is None
+
+    @pytest.mark.parametrize("response_model", [SchemaResponse, RulebookSchemaResponse])
+    @pytest.mark.parametrize("value", [False, 0, 1, 1.0, "true", "True", "false", [], {}])
+    def test_non_literal_true_is_rejected_on_response_parse(
+        self, response_model: type[SchemaResponse] | type[RulebookSchemaResponse], value: Any
+    ) -> None:
+        with pytest.raises(ValidationError, match="asked_by_opening"):
+            response_model.model_validate(
+                {
+                    "ruleset_id": "rs_example",
+                    "rulebook_id": "rb_example",
+                    "fields": [{"field_id": "person.name", "field_type": "string", "asked_by_opening": value}],
+                }
+            )
 
 
 class TestSchemaFieldAuthoredMetadata:
